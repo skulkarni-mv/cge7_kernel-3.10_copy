@@ -1581,6 +1581,8 @@ static int l2tp_tunnel_sock_create(struct net *net,
 		if (err < 0)
 			goto out;
 
+		udp_set_convert_csum(sock->sk, true);
+
 		break;
 
 	case L2TP_ENCAPTYPE_IP:
