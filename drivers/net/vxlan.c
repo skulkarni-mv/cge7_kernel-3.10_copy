@@ -1607,7 +1607,7 @@ static __net_init int vxlan_init_net(struct net *net)
 	unsigned h;
 
 	/* Create UDP socket for encapsulation receive. */
-	rc = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &vn->sock);
+	rc = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM, IPPROTO_UDP, &vn->sock);
 	if (rc < 0) {
 		pr_debug("UDP socket create failed\n");
 		return rc;

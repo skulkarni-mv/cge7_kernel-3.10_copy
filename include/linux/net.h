@@ -210,7 +210,7 @@ extern int	     __sock_create(struct net *net, int family, int type, int proto,
 				 struct socket **res, int kern);
 extern int	     sock_create(int family, int type, int proto,
 				 struct socket **res);
-extern int	     sock_create_kern(int family, int type, int proto,
+extern int	     sock_create_kern(struct net *net, int family, int type, int proto,
 				      struct socket **res);
 extern int	     sock_create_lite(int family, int type, int proto,
 				      struct socket **res); 
