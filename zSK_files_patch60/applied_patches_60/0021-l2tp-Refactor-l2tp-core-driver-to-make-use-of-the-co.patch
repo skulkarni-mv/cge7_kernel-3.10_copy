@@ -1,0 +1,63 @@
+From 4f92d73c68f69dbcb74cabdfc2caf70c743b48c5 Mon Sep 17 00:00:00 2001
+From: Andy Zhou <azhou@nicira.com>
+Date: Tue, 16 Sep 2014 17:31:19 -0700
+Subject: [PATCH 21/60] l2tp: Refactor l2tp core driver to make use of the
+ common UDP tunnel functions
+
+Simplify l2tp implementation using common UDP tunnel APIs.
+
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/c8fffcea0a079f933b4e98adf9ebaa384dc943b6 - v3.18-rc1 [SK - 0.800]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/l2tp/l2tp_core.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index f287a56..5cd8dec 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1581,8 +1581,6 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		if (err < 0)
+ 			goto out;
+ 
+-		udp_set_convert_csum(sock->sk, true);
+-
+ 		break;
+ 
+ 	case L2TP_ENCAPTYPE_IP:
+@@ -1778,19 +1776,17 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+ 	tunnel->encap = encap;
+ 	if (encap == L2TP_ENCAPTYPE_UDP) {
+-		/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+-		udp_sk(sk)->encap_type = UDP_ENCAP_L2TPINUDP;
+-		udp_sk(sk)->encap_rcv = l2tp_udp_encap_recv;
+-		udp_sk(sk)->encap_destroy = l2tp_udp_encap_destroy;
+-#if IS_ENABLED(CONFIG_IPV6)
+-		if (sk->sk_family == PF_INET6 && !tunnel->v4mapped)
+-			udpv6_encap_enable();
+-		else
+-#endif
+-		udp_encap_enable();
+-	}
++		struct udp_tunnel_sock_cfg udp_cfg;
++
++		udp_cfg.sk_user_data = tunnel;
++		udp_cfg.encap_type = UDP_ENCAP_L2TPINUDP;
++		udp_cfg.encap_rcv = l2tp_udp_encap_recv;
++		udp_cfg.encap_destroy = l2tp_udp_encap_destroy;
+ 
+-	sk->sk_user_data = tunnel;
++		setup_udp_tunnel_sock(net, sock, &udp_cfg);
++	} else {
++		sk->sk_user_data = tunnel;
++	}
+ 
+ 	/* Hook on the tunnel socket destructor so that we can cleanup
+ 	 * if the tunnel socket goes away.
+-- 
+2.7.4
+

@@ -1,0 +1,97 @@
+From e4f45b7f40bdaade5ef8f45e7c6daed4c909fdf5 Mon Sep 17 00:00:00 2001
+From: Tom Herbert <therbert@google.com>
+Date: Fri, 2 May 2014 16:29:51 -0700
+Subject: [PATCH] net: Call skb_checksum_init in IPv6
+
+Call skb_checksum_init instead of private functions.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip6_checksum.h |  7 +++++++
+ net/ipv6/ip6_checksum.c    | 11 +----------
+ net/ipv6/tcp_ipv6.c        | 21 +--------------------
+ 3 files changed, 9 insertions(+), 30 deletions(-)
+
+diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
+index 9e3c540..8ac5c21 100644
+--- a/include/net/ip6_checksum.h
++++ b/include/net/ip6_checksum.h
+@@ -41,6 +41,13 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
+ 			__wsum csum);
+ #endif
+ 
++static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
++{
++	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
++					    &ipv6_hdr(skb)->daddr,
++					    skb->len, proto, 0));
++}
++
+ static __inline__ __sum16 tcp_v6_check(int len,
+ 				   const struct in6_addr *saddr,
+ 				   const struct in6_addr *daddr,
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index ee7a97f..c69fe37 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -84,16 +84,7 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+ 			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+ 		return 1;
+ 	}
+-	if (skb->ip_summed == CHECKSUM_COMPLETE &&
+-	    !csum_ipv6_magic(&ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr,
+-			     skb->len, proto, skb->csum))
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+-	if (!skb_csum_unnecessary(skb))
+-		skb->csum = ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+-							 &ipv6_hdr(skb)->daddr,
+-							 skb->len, proto, 0));
+-
+-	return 0;
++	return skb_checksum_init(skb, IPPROTO_UDP, ip6_compute_pseudo);
+ }
+ EXPORT_SYMBOL(udp6_csum_init);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index e289830..7fa6743 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1294,25 +1294,6 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	return NULL;
+ }
+ 
+-static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
+-{
+-	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v6_check(skb->len, &ipv6_hdr(skb)->saddr,
+-				  &ipv6_hdr(skb)->daddr, skb->csum)) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			return 0;
+-		}
+-	}
+-
+-	skb->csum = ~csum_unfold(tcp_v6_check(skb->len,
+-					      &ipv6_hdr(skb)->saddr,
+-					      &ipv6_hdr(skb)->daddr, 0));
+-
+-	if (skb->len <= 76)
+-		return __skb_checksum_complete(skb);
+-	return 0;
+-}
+-
+ /* The socket must have it's spinlock held when we get
+  * here.
+  *
+@@ -1486,7 +1467,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, th->doff*4))
+ 		goto discard_it;
+ 
+-	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
++	if (skb_checksum_init(skb, IPPROTO_TCP, ip6_compute_pseudo))
+ 		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+-- 
+2.7.4
+

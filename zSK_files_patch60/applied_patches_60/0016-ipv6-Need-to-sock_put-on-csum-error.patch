@@ -1,0 +1,34 @@
+From c6678d811c697960ddd3eab5510d7bd32bd136f1 Mon Sep 17 00:00:00 2001
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 5 May 2014 16:43:58 -0700
+Subject: [PATCH 16/60] ipv6: Need to sock_put on csum error
+
+Commit 4068579e1e098fa81d48db9ba4432ab664c58561 ("net: Implmement
+RFC 6936 (zero RX csums for UDP/IPv6)") introduced zero checksums
+being allowed for IPv6, but in the case that a socket disallows a
+zero checksum on RX we need to sock_put.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/79e0f1c9f2c7096e93879d4158f2d34142b693dd - v3.16-rc1 [SK - 0.7355]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/ipv6/udp.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5288590..b0ab590 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -860,6 +860,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		int ret;
+ 
+ 		if (!uh->check && !sk->sk_no_check) {
++			sock_put(sk);
+ 			udp6_csum_zero_error(skb);
+ 			goto csum_error;
+ 		}
+-- 
+2.7.4
+

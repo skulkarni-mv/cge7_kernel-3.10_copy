@@ -1,0 +1,128 @@
+From 89b093578665a8b5e3061f690165f2a01662bbec Mon Sep 17 00:00:00 2001
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Date: Fri, 30 Jun 2017 13:08:01 +0300
+Subject: [PATCH 28/60] net: convert sock.sk_refcnt from atomic_t to refcount_t
+
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
+
+This patch uses refcount_inc_not_zero() instead of
+atomic_inc_not_zero_hint() due to absense of a _hint()
+version of refcount API. If the hint() version must
+be used, we might need to revisit API.
+
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Manual Patch - include/net/sock.h & net/l2tp/l2tp_debugfs.c Changes done from .../linux/commit/41c6d650 out of many files, so that next patch
+.../torvalds/linux/commit/fbea9e07 - fits on top of net/l2tp/l2tp_debugfs.c (this 1 file out of 4 had failure, so manually did changes here)
+
+https://github.com/torvalds/linux/commit/41c6d650f6537e55a1b53438c646fbc3f49176bf - v4.13-rc1 [SK - 0.8330]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ include/net/sock.h      | 17 +++++++++--------
+ net/l2tp/l2tp_debugfs.c |  3 +--
+ 2 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index f8375b4..6bf97d7 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -65,6 +65,7 @@
+ #include <linux/poll.h>
+ 
+ #include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <net/dst.h>
+ #include <net/checksum.h>
+ 
+@@ -203,7 +204,7 @@ struct sock_common {
+ 		struct hlist_nulls_node skc_nulls_node;
+ 	};
+ 	int			skc_tx_queue_mapping;
+-	atomic_t		skc_refcnt;
++	refcount_t		skc_refcnt;
+ 	/* private: */
+ 	int                     skc_dontcopy_end[0];
+ 	/* public: */
+@@ -527,7 +528,7 @@ static inline bool __sk_del_node_init(struct sock *sk)
+ 
+ static inline void sock_hold(struct sock *sk)
+ {
+-	atomic_inc(&sk->sk_refcnt);
++	refcount_inc(&sk->sk_refcnt);
+ }
+ 
+ /* Ungrab socket in the context, which assumes that socket refcnt
+@@ -535,7 +536,7 @@ static inline void sock_hold(struct sock *sk)
+  */
+ static inline void __sock_put(struct sock *sk)
+ {
+-	atomic_dec(&sk->sk_refcnt);
++	refcount_dec(&sk->sk_refcnt);
+ }
+ 
+ static inline bool sk_del_node_init(struct sock *sk)
+@@ -544,7 +545,7 @@ static inline bool sk_del_node_init(struct sock *sk)
+ 
+ 	if (rc) {
+ 		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ 	return rc;
+@@ -566,7 +567,7 @@ static inline bool sk_nulls_del_node_init_rcu(struct sock *sk)
+ 
+ 	if (rc) {
+ 		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ 	return rc;
+@@ -1069,9 +1070,9 @@ static inline void sk_refcnt_debug_dec(struct sock *sk)
+ 
+ static inline void sk_refcnt_debug_release(const struct sock *sk)
+ {
+-	if (atomic_read(&sk->sk_refcnt) != 1)
++	if (refcount_read(&sk->sk_refcnt) != 1)
+ 		printk(KERN_DEBUG "Destruction of the %s socket %p delayed, refcnt=%d\n",
+-		       sk->sk_prot->name, sk, atomic_read(&sk->sk_refcnt));
++		       sk->sk_prot->name, sk, refcount_read(&sk->sk_refcnt));
+ }
+ #else /* SOCK_REFCNT_DEBUG */
+ #define sk_refcnt_debug_inc(sk) do { } while (0)
+@@ -1644,7 +1645,7 @@ extern void sock_init_data(struct socket *sock, struct sock *sk);
+ /* Ungrab socket and destroy it, if it was the last reference. */
+ static inline void sock_put(struct sock *sk)
+ {
+-	if (atomic_dec_and_test(&sk->sk_refcnt))
++	if (refcount_dec_and_test(&sk->sk_refcnt))
+ 		sk_free(sk);
+ }
+ 
+diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
+index c6bd783..93e0953 100644
+--- a/net/l2tp/l2tp_debugfs.c
++++ b/net/l2tp/l2tp_debugfs.c
+@@ -143,9 +143,8 @@ static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
+ 		   tunnel->encap == L2TP_ENCAPTYPE_IP ? "IP" :
+ 		   "");
+ 	seq_printf(m, " %d sessions, refcnt %d/%d\n", session_count,
+-		   tunnel->sock ? atomic_read(&tunnel->sock->sk_refcnt) : 0,
++		   tunnel->sock ? refcount_read(&tunnel->sock->sk_refcnt) : 0,
+ 		   atomic_read(&tunnel->ref_count));
+-
+ 	seq_printf(m, " %08x rx %ld/%ld/%ld rx %ld/%ld/%ld\n",
+ 		   tunnel->debug,
+ 		   atomic_long_read(&tunnel->stats.tx_packets),
+-- 
+2.7.4
+

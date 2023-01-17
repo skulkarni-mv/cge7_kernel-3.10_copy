@@ -1,0 +1,102 @@
+From 1692d4864bce9e5a0c12e163573e07bf99c66fc3 Mon Sep 17 00:00:00 2001
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Mon, 10 Jun 2013 11:40:00 +0300
+Subject: [PATCH 13/60] udp: add low latency socket poll support
+
+Add upport for busy-polling on UDP sockets.
+In __udp[46]_lib_rcv add a call to sk_mark_ll() to copy the napi_id
+from the skb into the sk.
+This is done at the earliest possible moment, right after we identify
+which socket this skb is for.
+In __skb_recv_datagram When there is no data and the user
+tries to read we busy poll.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Manual Change in udp.c as Hunk 2/2 fuzz (/* a return value > 0 means to resubmit the input, but -> ... value > 0 means to resubmit the input */)
+https://github.com/torvalds/linux/commit/a5b50476f77a8fcc8055c955720d05a7c2d9c532 - v3.11-rc1 [SK - 0.7340]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/core/datagram.c | 4 ++++
+ net/ipv4/udp.c      | 6 +++++-
+ net/ipv6/udp.c      | 6 +++++-
+ 3 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index cf415f5..cda79b4 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -56,6 +56,7 @@
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
+ #include <trace/events/skb.h>
++#include <net/ll_poll.h>
+ 
+ /*
+  *	Is a socket 'connection oriented' ?
+@@ -300,6 +301,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		}
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
+ 
++		if (sk_valid_ll(sk) && sk_poll_ll(sk, flags & MSG_DONTWAIT))
++			continue;
++
+ 		/* User doesn't want to wait */
+ 		error = -EAGAIN;
+ 		if (!timeo)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ca2cfe9..0890582 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -109,6 +109,7 @@
+ #include <trace/events/udp.h>
+ #include <linux/static_key.h>
+ #include <trace/events/skb.h>
++#include <net/ll_poll.h>
+ #include "udp_impl.h"
+ 
+ struct udp_table udp_table __read_mostly;
+@@ -1708,7 +1709,10 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk != NULL) {
+-		int ret = udp_queue_rcv_skb(sk, skb);
++		int ret;
++
++		sk_mark_ll(sk, skb);
++		ret = udp_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+ 		/* a return value > 0 means to resubmit the input, but
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 85fce2d..765a1f1 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -46,6 +46,7 @@
+ #include <net/ip6_checksum.h>
+ #include <net/xfrm.h>
+ #include <net/inet6_hashtables.h>
++#include <net/ll_poll.h>
+ 
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -838,7 +839,10 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	 */
+ 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 	if (sk != NULL) {
+-		int ret = udpv6_queue_rcv_skb(sk, skb);
++		int ret;
++
++		sk_mark_ll(sk, skb);
++		ret = udpv6_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+ 		/* a return value > 0 means to resubmit the input */
+-- 
+2.7.4
+

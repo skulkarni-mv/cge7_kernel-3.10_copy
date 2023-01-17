@@ -1,0 +1,40 @@
+From c0feb5668375c035d609c74bc3961099a680c733 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Date: Tue, 25 Feb 2014 21:11:02 +0100
+Subject: [PATCH 10/60] ipv6: log src and dst along with "udp checksum is 0"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These info messages are rather pointless without any means to identify
+the source of the bogus packets.  Logging the src and dst addresses and
+ports may help a bit.
+
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Bjørn Mork <bjorn@mork.no>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/84a3e72c3a5c2441be46c4afba95fe5af3c370e7 - v3.15-rc1 [SK - 0.732]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/ipv6/ip6_checksum.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index 72d198b..ee7a97f 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -79,7 +79,9 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+ 		/* RFC 2460 section 8.1 says that we SHOULD log
+ 		   this error. Well, it is reasonable.
+ 		 */
+-		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0\n");
++		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
++			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
++			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+ 		return 1;
+ 	}
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE &&
+-- 
+2.7.4
+

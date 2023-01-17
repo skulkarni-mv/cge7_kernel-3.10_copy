@@ -1,0 +1,102 @@
+From 44a1ec9e82551f41986c493a4a066079faadb55e Mon Sep 17 00:00:00 2001
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Thu, 6 Mar 2014 11:14:30 +0100
+Subject: [PATCH 26/60] l2tp: fix manual sequencing (de)activation in L2TPv2
+
+Commit e0d4435f "l2tp: Update PPP-over-L2TP driver to work over L2TPv3"
+broke the PPPOL2TP_SO_SENDSEQ setsockopt. The L2TP header length was
+previously computed by pppol2tp_l2t_header_len() before each call to
+l2tp_xmit_skb(). Now that header length is retrieved from the hdr_len
+session field, this field must be updated every time the L2TP header
+format is modified, or l2tp_xmit_skb() won't push the right amount of
+data for the L2TP header.
+
+This patch uses l2tp_session_set_header_len() to adjust hdr_len every
+time sequencing is (de)activated from userspace (either by the
+PPPOL2TP_SO_SENDSEQ setsockopt or the L2TP_ATTR_SEND_SEQ netlink
+attribute).
+
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/bb5016eac1656506df1a9d6057ce5bec342afbef - v3.14-rc7 [SK - 0.8300]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/l2tp/l2tp_core.c    | 4 ++--
+ net/l2tp/l2tp_core.h    | 1 +
+ net/l2tp/l2tp_netlink.c | 4 +++-
+ net/l2tp/l2tp_ppp.c     | 1 +
+ 4 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 6980c98..7ea7b9c 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -113,7 +113,6 @@ struct l2tp_net {
+ 	spinlock_t l2tp_session_hlist_lock;
+ };
+ 
+-static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
+ static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
+ 
+ static inline struct l2tp_tunnel *l2tp_tunnel(struct sock *sk)
+@@ -1915,7 +1914,7 @@ EXPORT_SYMBOL_GPL(l2tp_session_delete);
+ /* We come here whenever a session's send_seq, cookie_len or
+  * l2specific_len parameters are set.
+  */
+-static void l2tp_session_set_header_len(struct l2tp_session *session, int version)
++void l2tp_session_set_header_len(struct l2tp_session *session, int version)
+ {
+ 	if (version == L2TP_HDR_VER_2) {
+ 		session->hdr_len = 6;
+@@ -1928,6 +1927,7 @@ static void l2tp_session_set_header_len(struct l2tp_session *session, int versio
+ 	}
+ 
+ }
++EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
+ 
+ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+ {
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index c082273..e4e2ec6 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -274,6 +274,7 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 		      int length, int (*payload_hook)(struct sk_buff *skb));
+ int l2tp_session_queue_purge(struct l2tp_session *session);
+ int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
++void l2tp_session_set_header_len(struct l2tp_session *session, int version);
+ 
+ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
+ 		  int hdr_len);
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index c97fa74..d502a10 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -584,8 +584,10 @@ static int l2tp_nl_cmd_session_modify(struct sk_buff *skb, struct genl_info *inf
+ 	if (info->attrs[L2TP_ATTR_RECV_SEQ])
+ 		session->recv_seq = nla_get_u8(info->attrs[L2TP_ATTR_RECV_SEQ]);
+ 
+-	if (info->attrs[L2TP_ATTR_SEND_SEQ])
++	if (info->attrs[L2TP_ATTR_SEND_SEQ]) {
+ 		session->send_seq = nla_get_u8(info->attrs[L2TP_ATTR_SEND_SEQ]);
++		l2tp_session_set_header_len(session, session->tunnel->version);
++	}
+ 
+ 	if (info->attrs[L2TP_ATTR_LNS_MODE])
+ 		session->lns_mode = nla_get_u8(info->attrs[L2TP_ATTR_LNS_MODE]);
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index be49463..b154bcb 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -1306,6 +1306,7 @@ static int pppol2tp_session_setsockopt(struct sock *sk,
+ 			po->chan.hdrlen = val ? PPPOL2TP_L2TP_HDR_SIZE_SEQ :
+ 				PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
+ 		}
++		l2tp_session_set_header_len(session, session->tunnel->version);
+ 		l2tp_info(session, PPPOL2TP_MSG_CONTROL,
+ 			  "%s: set send_seq=%d\n",
+ 			  session->name, session->send_seq);
+-- 
+2.7.4
+

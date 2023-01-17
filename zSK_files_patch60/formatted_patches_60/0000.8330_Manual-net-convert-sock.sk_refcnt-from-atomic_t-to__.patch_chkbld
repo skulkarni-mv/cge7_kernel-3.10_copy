@@ -1,0 +1,819 @@
+From 41c6d650f6537e55a1b53438c646fbc3f49176bf Mon Sep 17 00:00:00 2001
+From: "Reshetova, Elena" <elena.reshetova@intel.com>
+Date: Fri, 30 Jun 2017 13:08:01 +0300
+Subject: [PATCH] net: convert sock.sk_refcnt from atomic_t to refcount_t
+
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
+
+This patch uses refcount_inc_not_zero() instead of
+atomic_inc_not_zero_hint() due to absense of a _hint()
+version of refcount API. If the hint() version must
+be used, we might need to revisit API.
+
+Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
+Signed-off-by: Hans Liljestrand <ishkamiel@gmail.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ crypto/algif_aead.c             |  2 +-
+ include/net/inet_hashtables.h   |  4 ++--
+ include/net/request_sock.h      |  9 +++++----
+ include/net/sock.h              | 17 +++++++++--------
+ net/atm/proc.c                  |  2 +-
+ net/bluetooth/af_bluetooth.c    |  2 +-
+ net/bluetooth/rfcomm/sock.c     |  2 +-
+ net/core/skbuff.c               |  6 +++---
+ net/core/sock.c                 |  6 +++---
+ net/ipv4/inet_connection_sock.c |  2 +-
+ net/ipv4/inet_hashtables.c      |  4 ++--
+ net/ipv4/inet_timewait_sock.c   |  8 ++++----
+ net/ipv4/ping.c                 |  4 ++--
+ net/ipv4/raw.c                  |  2 +-
+ net/ipv4/syncookies.c           |  2 +-
+ net/ipv4/tcp_fastopen.c         |  2 +-
+ net/ipv4/tcp_ipv4.c             |  4 ++--
+ net/ipv4/udp.c                  |  6 +++---
+ net/ipv4/udp_diag.c             |  4 ++--
+ net/ipv6/datagram.c             |  2 +-
+ net/ipv6/inet6_hashtables.c     |  4 ++--
+ net/ipv6/tcp_ipv6.c             |  4 ++--
+ net/ipv6/udp.c                  |  4 ++--
+ net/key/af_key.c                |  2 +-
+ net/l2tp/l2tp_debugfs.c         |  3 +--
+ net/llc/llc_conn.c              |  8 ++++----
+ net/llc/llc_sap.c               |  2 +-
+ net/netfilter/xt_TPROXY.c       |  4 ++--
+ net/netlink/af_netlink.c        |  6 +++---
+ net/packet/af_packet.c          |  2 +-
+ net/phonet/socket.c             |  2 +-
+ net/rxrpc/af_rxrpc.c            |  2 +-
+ net/sched/em_meta.c             |  2 +-
+ net/tipc/socket.c               |  2 +-
+ net/unix/af_unix.c              |  2 +-
+ 35 files changed, 70 insertions(+), 69 deletions(-)
+
+diff --git a/crypto/algif_aead.c b/crypto/algif_aead.c
+index 8af664f..be117495 100644
+--- a/crypto/algif_aead.c
++++ b/crypto/algif_aead.c
+@@ -877,7 +877,7 @@ static void aead_sock_destruct(struct sock *sk)
+ 	unsigned int ivlen = crypto_aead_ivsize(
+ 				crypto_aead_reqtfm(&ctx->aead_req));
+ 
+-	WARN_ON(atomic_read(&sk->sk_refcnt) != 0);
++	WARN_ON(refcount_read(&sk->sk_refcnt) != 0);
+ 	aead_put_sgl(sk);
+ 	sock_kzfree_s(sk, ctx->iv, ivlen);
+ 	sock_kfree_s(sk, ctx, ctx->len);
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 1178931..b9e6e0e 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -32,7 +32,7 @@
+ #include <net/tcp_states.h>
+ #include <net/netns/hash.h>
+ 
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <asm/byteorder.h>
+ 
+ /* This is for all connections with a full identity, no wildcards.
+@@ -334,7 +334,7 @@ static inline struct sock *inet_lookup(struct net *net,
+ 	sk = __inet_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
+ 			   dport, dif, &refcounted);
+ 
+-	if (sk && !refcounted && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcounted && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 	return sk;
+ }
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 53ced67..23e2205 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -19,6 +19,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+ #include <linux/bug.h>
++#include <linux/refcount.h>
+ 
+ #include <net/sock.h>
+ 
+@@ -89,7 +90,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
+ 		return NULL;
+ 	req->rsk_listener = NULL;
+ 	if (attach_listener) {
+-		if (unlikely(!atomic_inc_not_zero(&sk_listener->sk_refcnt))) {
++		if (unlikely(!refcount_inc_not_zero(&sk_listener->sk_refcnt))) {
+ 			kmem_cache_free(ops->slab, req);
+ 			return NULL;
+ 		}
+@@ -100,7 +101,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
+ 	sk_node_init(&req_to_sk(req)->sk_node);
+ 	sk_tx_queue_clear(req_to_sk(req));
+ 	req->saved_syn = NULL;
+-	atomic_set(&req->rsk_refcnt, 0);
++	refcount_set(&req->rsk_refcnt, 0);
+ 
+ 	return req;
+ }
+@@ -108,7 +109,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
+ static inline void reqsk_free(struct request_sock *req)
+ {
+ 	/* temporary debugging */
+-	WARN_ON_ONCE(atomic_read(&req->rsk_refcnt) != 0);
++	WARN_ON_ONCE(refcount_read(&req->rsk_refcnt) != 0);
+ 
+ 	req->rsk_ops->destructor(req);
+ 	if (req->rsk_listener)
+@@ -119,7 +120,7 @@ static inline void reqsk_free(struct request_sock *req)
+ 
+ static inline void reqsk_put(struct request_sock *req)
+ {
+-	if (atomic_dec_and_test(&req->rsk_refcnt))
++	if (refcount_dec_and_test(&req->rsk_refcnt))
+ 		reqsk_free(req);
+ }
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 5284e50..60200f4 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -66,6 +66,7 @@
+ #include <linux/poll.h>
+ 
+ #include <linux/atomic.h>
++#include <linux/refcount.h>
+ #include <net/dst.h>
+ #include <net/checksum.h>
+ #include <net/tcp_states.h>
+@@ -219,7 +220,7 @@ struct sock_common {
+ 		u32		skc_tw_rcv_nxt; /* struct tcp_timewait_sock  */
+ 	};
+ 
+-	atomic_t		skc_refcnt;
++	refcount_t		skc_refcnt;
+ 	/* private: */
+ 	int                     skc_dontcopy_end[0];
+ 	union {
+@@ -611,7 +612,7 @@ static inline bool __sk_del_node_init(struct sock *sk)
+ 
+ static __always_inline void sock_hold(struct sock *sk)
+ {
+-	atomic_inc(&sk->sk_refcnt);
++	refcount_inc(&sk->sk_refcnt);
+ }
+ 
+ /* Ungrab socket in the context, which assumes that socket refcnt
+@@ -619,7 +620,7 @@ static __always_inline void sock_hold(struct sock *sk)
+  */
+ static __always_inline void __sock_put(struct sock *sk)
+ {
+-	atomic_dec(&sk->sk_refcnt);
++	refcount_dec(&sk->sk_refcnt);
+ }
+ 
+ static inline bool sk_del_node_init(struct sock *sk)
+@@ -628,7 +629,7 @@ static inline bool sk_del_node_init(struct sock *sk)
+ 
+ 	if (rc) {
+ 		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ 	return rc;
+@@ -650,7 +651,7 @@ static inline bool sk_nulls_del_node_init_rcu(struct sock *sk)
+ 
+ 	if (rc) {
+ 		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ 	return rc;
+@@ -1144,9 +1145,9 @@ static inline void sk_refcnt_debug_dec(struct sock *sk)
+ 
+ static inline void sk_refcnt_debug_release(const struct sock *sk)
+ {
+-	if (atomic_read(&sk->sk_refcnt) != 1)
++	if (refcount_read(&sk->sk_refcnt) != 1)
+ 		printk(KERN_DEBUG "Destruction of the %s socket %p delayed, refcnt=%d\n",
+-		       sk->sk_prot->name, sk, atomic_read(&sk->sk_refcnt));
++		       sk->sk_prot->name, sk, refcount_read(&sk->sk_refcnt));
+ }
+ #else /* SOCK_REFCNT_DEBUG */
+ #define sk_refcnt_debug_inc(sk) do { } while (0)
+@@ -1636,7 +1637,7 @@ void sock_init_data(struct socket *sock, struct sock *sk);
+ /* Ungrab socket and destroy it, if it was the last reference. */
+ static inline void sock_put(struct sock *sk)
+ {
+-	if (atomic_dec_and_test(&sk->sk_refcnt))
++	if (refcount_dec_and_test(&sk->sk_refcnt))
+ 		sk_free(sk);
+ }
+ /* Generic version of sock_put(), dealing with all sockets
+diff --git a/net/atm/proc.c b/net/atm/proc.c
+index bbb6461..27c9c01 100644
+--- a/net/atm/proc.c
++++ b/net/atm/proc.c
+@@ -211,7 +211,7 @@ static void vcc_info(struct seq_file *seq, struct atm_vcc *vcc)
+ 		   vcc->flags, sk->sk_err,
+ 		   sk_wmem_alloc_get(sk), sk->sk_sndbuf,
+ 		   sk_rmem_alloc_get(sk), sk->sk_rcvbuf,
+-		   atomic_read(&sk->sk_refcnt));
++		   refcount_read(&sk->sk_refcnt));
+ }
+ 
+ static void svc_info(struct seq_file *seq, struct atm_vcc *vcc)
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 8a8f77a..91e3ba2 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -657,7 +657,7 @@ static int bt_seq_show(struct seq_file *seq, void *v)
+ 		seq_printf(seq,
+ 			   "%pK %-6d %-6u %-6u %-6u %-6lu %-6lu",
+ 			   sk,
+-			   atomic_read(&sk->sk_refcnt),
++			   refcount_read(&sk->sk_refcnt),
+ 			   sk_rmem_alloc_get(sk),
+ 			   sk_wmem_alloc_get(sk),
+ 			   from_kuid(seq_user_ns(seq), sock_i_uid(sk)),
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+index ac3c650c..2172ae5 100644
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -197,7 +197,7 @@ static void rfcomm_sock_kill(struct sock *sk)
+ 	if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
+ 		return;
+ 
+-	BT_DBG("sk %p state %d refcnt %d", sk, sk->sk_state, atomic_read(&sk->sk_refcnt));
++	BT_DBG("sk %p state %d refcnt %d", sk, sk->sk_state, refcount_read(&sk->sk_refcnt));
+ 
+ 	/* Kill poor orphan */
+ 	bt_sock_unlink(&rfcomm_sk_list, sk);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c267713..8b11341 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3844,7 +3844,7 @@ struct sk_buff *skb_clone_sk(struct sk_buff *skb)
+ 	struct sock *sk = skb->sk;
+ 	struct sk_buff *clone;
+ 
+-	if (!sk || !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (!sk || !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		return NULL;
+ 
+ 	clone = skb_clone(skb, GFP_ATOMIC);
+@@ -3915,7 +3915,7 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
+ 	/* Take a reference to prevent skb_orphan() from freeing the socket,
+ 	 * but only if the socket refcount is not zero.
+ 	 */
+-	if (likely(atomic_inc_not_zero(&sk->sk_refcnt))) {
++	if (likely(refcount_inc_not_zero(&sk->sk_refcnt))) {
+ 		*skb_hwtstamps(skb) = *hwtstamps;
+ 		__skb_complete_tx_timestamp(skb, sk, SCM_TSTAMP_SND, false);
+ 		sock_put(sk);
+@@ -3997,7 +3997,7 @@ void skb_complete_wifi_ack(struct sk_buff *skb, bool acked)
+ 	/* Take a reference to prevent skb_orphan() from freeing the socket,
+ 	 * but only if the socket refcount is not zero.
+ 	 */
+-	if (likely(atomic_inc_not_zero(&sk->sk_refcnt))) {
++	if (likely(refcount_inc_not_zero(&sk->sk_refcnt))) {
+ 		err = sock_queue_err_skb(sk, skb);
+ 		sock_put(sk);
+ 	}
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0866d59..ba0ef6a 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1708,7 +1708,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		 * (Documentation/RCU/rculist_nulls.txt for details)
+ 		 */
+ 		smp_wmb();
+-		atomic_set(&newsk->sk_refcnt, 2);
++		refcount_set(&newsk->sk_refcnt, 2);
+ 
+ 		/*
+ 		 * Increment the counter in the same struct proto as the master
+@@ -1851,7 +1851,7 @@ void skb_orphan_partial(struct sk_buff *skb)
+ 		) {
+ 		struct sock *sk = skb->sk;
+ 
+-		if (atomic_inc_not_zero(&sk->sk_refcnt)) {
++		if (refcount_inc_not_zero(&sk->sk_refcnt)) {
+ 			WARN_ON(refcount_sub_and_test(skb->truesize, &sk->sk_wmem_alloc));
+ 			skb->destructor = sock_efree;
+ 		}
+@@ -2687,7 +2687,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 	 * (Documentation/RCU/rculist_nulls.txt for details)
+ 	 */
+ 	smp_wmb();
+-	atomic_set(&sk->sk_refcnt, 1);
++	refcount_set(&sk->sk_refcnt, 1);
+ 	atomic_set(&sk->sk_drops, 0);
+ }
+ EXPORT_SYMBOL(sock_init_data);
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index a3fa1a5..4089c01 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -756,7 +756,7 @@ static void reqsk_queue_hash_req(struct request_sock *req,
+ 	 * are committed to memory and refcnt initialized.
+ 	 */
+ 	smp_wmb();
+-	atomic_set(&req->rsk_refcnt, 2 + 1);
++	refcount_set(&req->rsk_refcnt, 2 + 1);
+ }
+ 
+ void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index e9a59d2..a4be2c1 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -246,7 +246,7 @@ EXPORT_SYMBOL_GPL(__inet_lookup_listener);
+ /* All sockets share common refcount, but have different destructors */
+ void sock_gen_put(struct sock *sk)
+ {
+-	if (!atomic_dec_and_test(&sk->sk_refcnt))
++	if (!refcount_dec_and_test(&sk->sk_refcnt))
+ 		return;
+ 
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+@@ -287,7 +287,7 @@ struct sock *__inet_lookup_established(struct net *net,
+ 			continue;
+ 		if (likely(INET_MATCH(sk, net, acookie,
+ 				      saddr, daddr, ports, dif))) {
+-			if (unlikely(!atomic_inc_not_zero(&sk->sk_refcnt)))
++			if (unlikely(!refcount_inc_not_zero(&sk->sk_refcnt)))
+ 				goto out;
+ 			if (unlikely(!INET_MATCH(sk, net, acookie,
+ 						 saddr, daddr, ports, dif))) {
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index f8aff2c..5b03915 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -76,7 +76,7 @@ void inet_twsk_free(struct inet_timewait_sock *tw)
+ 
+ void inet_twsk_put(struct inet_timewait_sock *tw)
+ {
+-	if (atomic_dec_and_test(&tw->tw_refcnt))
++	if (refcount_dec_and_test(&tw->tw_refcnt))
+ 		inet_twsk_free(tw);
+ }
+ EXPORT_SYMBOL_GPL(inet_twsk_put);
+@@ -131,7 +131,7 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
+ 	 * We can use atomic_set() because prior spin_lock()/spin_unlock()
+ 	 * committed into memory all tw fields.
+ 	 */
+-	atomic_set(&tw->tw_refcnt, 4);
++	refcount_set(&tw->tw_refcnt, 4);
+ 	inet_twsk_add_node_rcu(tw, &ehead->chain);
+ 
+ 	/* Step 3: Remove SK from hash chain */
+@@ -195,7 +195,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
+ 		 * to a non null value before everything is setup for this
+ 		 * timewait socket.
+ 		 */
+-		atomic_set(&tw->tw_refcnt, 0);
++		refcount_set(&tw->tw_refcnt, 0);
+ 
+ 		__module_get(tw->tw_prot->owner);
+ 	}
+@@ -278,7 +278,7 @@ void inet_twsk_purge(struct inet_hashinfo *hashinfo, int family)
+ 				atomic_read(&twsk_net(tw)->count))
+ 				continue;
+ 
+-			if (unlikely(!atomic_inc_not_zero(&tw->tw_refcnt)))
++			if (unlikely(!refcount_inc_not_zero(&tw->tw_refcnt)))
+ 				continue;
+ 
+ 			if (unlikely((tw->tw_family != family) ||
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index ccfbce1..b8f0db5 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -290,7 +290,7 @@ void ping_close(struct sock *sk, long timeout)
+ {
+ 	pr_debug("ping_close(sk=%p,sk->num=%u)\n",
+ 		 inet_sk(sk), inet_sk(sk)->inet_num);
+-	pr_debug("isk->refcnt = %d\n", sk->sk_refcnt.counter);
++	pr_debug("isk->refcnt = %d\n", refcount_read(&sk->sk_refcnt));
+ 
+ 	sk_common_release(sk);
+ }
+@@ -1127,7 +1127,7 @@ static void ping_v4_format_sock(struct sock *sp, struct seq_file *f,
+ 		0, 0L, 0,
+ 		from_kuid_munged(seq_user_ns(f), sock_i_uid(sp)),
+ 		0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp,
++		refcount_read(&sp->sk_refcnt), sp,
+ 		atomic_read(&sp->sk_drops));
+ }
+ 
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index bdffad8..b0bb5d0 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -1063,7 +1063,7 @@ static void raw_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
+ 		0, 0L, 0,
+ 		from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
+ 		0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
++		refcount_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
+ }
+ 
+ static int raw_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 7835bb4..0905cf0 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -213,7 +213,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst,
+ 						 NULL, &own_req);
+ 	if (child) {
+-		atomic_set(&req->rsk_refcnt, 1);
++		refcount_set(&req->rsk_refcnt, 1);
+ 		tcp_sk(child)->tsoffset = tsoff;
+ 		sock_rps_save_rxhash(child, skb);
+ 		inet_csk_reqsk_queue_add(sk, req, child);
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 4af82b9..8b1539e 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -214,7 +214,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+ 	inet_csk_reset_xmit_timer(child, ICSK_TIME_RETRANS,
+ 				  TCP_TIMEOUT_INIT, TCP_RTO_MAX);
+ 
+-	atomic_set(&req->rsk_refcnt, 2);
++	refcount_set(&req->rsk_refcnt, 2);
+ 
+ 	/* Now finish processing the fastopen child socket. */
+ 	inet_csk(child)->icsk_af_ops->rebuild_header(child);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d774bcd..6ec6900 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2323,7 +2323,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i)
+ 		from_kuid_munged(seq_user_ns(f), sock_i_uid(sk)),
+ 		icsk->icsk_probes_out,
+ 		sock_i_ino(sk),
+-		atomic_read(&sk->sk_refcnt), sk,
++		refcount_read(&sk->sk_refcnt), sk,
+ 		jiffies_to_clock_t(icsk->icsk_rto),
+ 		jiffies_to_clock_t(icsk->icsk_ack.ato),
+ 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
+@@ -2349,7 +2349,7 @@ static void get_timewait4_sock(const struct inet_timewait_sock *tw,
+ 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %pK",
+ 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
+ 		3, jiffies_delta_to_clock_t(delta), 0, 0, 0, 0,
+-		atomic_read(&tw->tw_refcnt), tw);
++		refcount_read(&tw->tw_refcnt), tw);
+ }
+ 
+ #define TMPSZ 150
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 86fad2a..25294d4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -577,7 +577,7 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 
+ 	sk = __udp4_lib_lookup(net, saddr, sport, daddr, dport,
+ 			       dif, &udp_table, NULL);
+-	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 	return sk;
+ }
+@@ -2242,7 +2242,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 					     uh->source, iph->saddr, dif);
+ 	}
+ 
+-	if (!sk || !atomic_inc_not_zero_hint(&sk->sk_refcnt, 2))
++	if (!sk || !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		return;
+ 
+ 	skb->sk = sk;
+@@ -2691,7 +2691,7 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
+ 		0, 0L, 0,
+ 		from_kuid_munged(seq_user_ns(f), sock_i_uid(sp)),
+ 		0, sock_i_ino(sp),
+-		atomic_read(&sp->sk_refcnt), sp,
++		refcount_read(&sp->sk_refcnt), sp,
+ 		atomic_read(&sp->sk_drops));
+ }
+ 
+diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
+index 9a89c10..4515836 100644
+--- a/net/ipv4/udp_diag.c
++++ b/net/ipv4/udp_diag.c
+@@ -55,7 +55,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
+ 				req->id.idiag_dport,
+ 				req->id.idiag_if, tbl, NULL);
+ #endif
+-	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 	rcu_read_unlock();
+ 	err = -ENOENT;
+@@ -206,7 +206,7 @@ static int __udp_diag_destroy(struct sk_buff *in_skb,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 
+ 	rcu_read_unlock();
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 5c786f5..a1f9187 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -1041,6 +1041,6 @@ void ip6_dgram_sock_seq_show(struct seq_file *seq, struct sock *sp,
+ 		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
+ 		   0,
+ 		   sock_i_ino(sp),
+-		   atomic_read(&sp->sk_refcnt), sp,
++		   refcount_read(&sp->sk_refcnt), sp,
+ 		   atomic_read(&sp->sk_drops));
+ }
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index d090091..b13b8f9 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -75,7 +75,7 @@ struct sock *__inet6_lookup_established(struct net *net,
+ 			continue;
+ 		if (!INET6_MATCH(sk, net, saddr, daddr, ports, dif))
+ 			continue;
+-		if (unlikely(!atomic_inc_not_zero(&sk->sk_refcnt)))
++		if (unlikely(!refcount_inc_not_zero(&sk->sk_refcnt)))
+ 			goto out;
+ 
+ 		if (unlikely(!INET6_MATCH(sk, net, saddr, daddr, ports, dif))) {
+@@ -172,7 +172,7 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
+ 
+ 	sk = __inet6_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
+ 			    ntohs(dport), dif, &refcounted);
+-	if (sk && !refcounted && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcounted && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 	return sk;
+ }
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f1a4881..2521690 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1809,7 +1809,7 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
+ 		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
+ 		   icsk->icsk_probes_out,
+ 		   sock_i_ino(sp),
+-		   atomic_read(&sp->sk_refcnt), sp,
++		   refcount_read(&sp->sk_refcnt), sp,
+ 		   jiffies_to_clock_t(icsk->icsk_rto),
+ 		   jiffies_to_clock_t(icsk->icsk_ack.ato),
+ 		   (icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
+@@ -1842,7 +1842,7 @@ static void get_timewait6_sock(struct seq_file *seq,
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   tw->tw_substate, 0, 0,
+ 		   3, jiffies_delta_to_clock_t(delta), 0, 0, 0, 0,
+-		   atomic_read(&tw->tw_refcnt), tw);
++		   refcount_read(&tw->tw_refcnt), tw);
+ }
+ 
+ static int tcp6_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 319aa8e..4a3e656 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -325,7 +325,7 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
+ 
+ 	sk =  __udp6_lib_lookup(net, saddr, sport, daddr, dport,
+ 				dif, &udp_table, NULL);
+-	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++	if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		sk = NULL;
+ 	return sk;
+ }
+@@ -916,7 +916,7 @@ static void udp_v6_early_demux(struct sk_buff *skb)
+ 	else
+ 		return;
+ 
+-	if (!sk || !atomic_inc_not_zero_hint(&sk->sk_refcnt, 2))
++	if (!sk || !refcount_inc_not_zero(&sk->sk_refcnt))
+ 		return;
+ 
+ 	skb->sk = sk;
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index e466579..edcf1d0 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3739,7 +3739,7 @@ static int pfkey_seq_show(struct seq_file *f, void *v)
+ 	else
+ 		seq_printf(f, "%pK %-6d %-6u %-6u %-6u %-6lu\n",
+ 			       s,
+-			       atomic_read(&s->sk_refcnt),
++			       refcount_read(&s->sk_refcnt),
+ 			       sk_rmem_alloc_get(s),
+ 			       sk_wmem_alloc_get(s),
+ 			       from_kuid_munged(seq_user_ns(f), sock_i_uid(s)),
+diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
+index d100aed..98a005d 100644
+--- a/net/l2tp/l2tp_debugfs.c
++++ b/net/l2tp/l2tp_debugfs.c
+@@ -144,9 +144,8 @@ static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
+ 		   tunnel->encap == L2TP_ENCAPTYPE_IP ? "IP" :
+ 		   "");
+ 	seq_printf(m, " %d sessions, refcnt %d/%d\n", session_count,
+-		   tunnel->sock ? atomic_read(&tunnel->sock->sk_refcnt) : 0,
++		   tunnel->sock ? refcount_read(&tunnel->sock->sk_refcnt) : 0,
+ 		   atomic_read(&tunnel->ref_count));
+-
+ 	seq_printf(m, " %08x rx %ld/%ld/%ld rx %ld/%ld/%ld\n",
+ 		   tunnel->debug,
+ 		   atomic_long_read(&tunnel->stats.tx_packets),
+diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
+index 9b02c13..5e91b47 100644
+--- a/net/llc/llc_conn.c
++++ b/net/llc/llc_conn.c
+@@ -507,7 +507,7 @@ static struct sock *__llc_lookup_established(struct llc_sap *sap,
+ 	sk_nulls_for_each_rcu(rc, node, laddr_hb) {
+ 		if (llc_estab_match(sap, daddr, laddr, rc)) {
+ 			/* Extra checks required by SLAB_TYPESAFE_BY_RCU */
+-			if (unlikely(!atomic_inc_not_zero(&rc->sk_refcnt)))
++			if (unlikely(!refcount_inc_not_zero(&rc->sk_refcnt)))
+ 				goto again;
+ 			if (unlikely(llc_sk(rc)->sap != sap ||
+ 				     !llc_estab_match(sap, daddr, laddr, rc))) {
+@@ -566,7 +566,7 @@ static struct sock *__llc_lookup_listener(struct llc_sap *sap,
+ 	sk_nulls_for_each_rcu(rc, node, laddr_hb) {
+ 		if (llc_listener_match(sap, laddr, rc)) {
+ 			/* Extra checks required by SLAB_TYPESAFE_BY_RCU */
+-			if (unlikely(!atomic_inc_not_zero(&rc->sk_refcnt)))
++			if (unlikely(!refcount_inc_not_zero(&rc->sk_refcnt)))
+ 				goto again;
+ 			if (unlikely(llc_sk(rc)->sap != sap ||
+ 				     !llc_listener_match(sap, laddr, rc))) {
+@@ -973,9 +973,9 @@ void llc_sk_free(struct sock *sk)
+ 	skb_queue_purge(&sk->sk_write_queue);
+ 	skb_queue_purge(&llc->pdu_unack_q);
+ #ifdef LLC_REFCNT_DEBUG
+-	if (atomic_read(&sk->sk_refcnt) != 1) {
++	if (refcount_read(&sk->sk_refcnt) != 1) {
+ 		printk(KERN_DEBUG "Destruction of LLC sock %p delayed in %s, cnt=%d\n",
+-			sk, __func__, atomic_read(&sk->sk_refcnt));
++			sk, __func__, refcount_read(&sk->sk_refcnt));
+ 		printk(KERN_DEBUG "%d LLC sockets are still alive\n",
+ 			atomic_read(&llc_sock_nr));
+ 	} else {
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index 63b6ab0..d90928f 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -329,7 +329,7 @@ static struct sock *llc_lookup_dgram(struct llc_sap *sap,
+ 	sk_nulls_for_each_rcu(rc, node, laddr_hb) {
+ 		if (llc_dgram_match(sap, laddr, rc)) {
+ 			/* Extra checks required by SLAB_TYPESAFE_BY_RCU */
+-			if (unlikely(!atomic_inc_not_zero(&rc->sk_refcnt)))
++			if (unlikely(!refcount_inc_not_zero(&rc->sk_refcnt)))
+ 				goto again;
+ 			if (unlikely(llc_sk(rc)->sap != sap ||
+ 				     !llc_dgram_match(sap, laddr, rc))) {
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index df7f1df..d767e35 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -127,7 +127,7 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
+ 						    daddr, dport,
+ 						    in->ifindex);
+ 
+-			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++			if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 				sk = NULL;
+ 			/* NOTE: we return listeners even if bound to
+ 			 * 0.0.0.0, those are filtered out in
+@@ -197,7 +197,7 @@ nf_tproxy_get_sock_v6(struct net *net, struct sk_buff *skb, int thoff, void *hp,
+ 						   daddr, ntohs(dport),
+ 						   in->ifindex);
+ 
+-			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++			if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
+ 				sk = NULL;
+ 			/* NOTE: we return listeners even if bound to
+ 			 * 0.0.0.0, those are filtered out in
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 8ced52e..5acee49 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -575,7 +575,7 @@ static void netlink_remove(struct sock *sk)
+ 	table = &nl_table[sk->sk_protocol];
+ 	if (!rhashtable_remove_fast(&table->hash, &nlk_sk(sk)->node,
+ 				    netlink_rhashtable_params)) {
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ 
+@@ -691,7 +691,7 @@ static void deferred_put_nlk_sk(struct rcu_head *head)
+ 	struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
+ 	struct sock *sk = &nlk->sk;
+ 
+-	if (!atomic_dec_and_test(&sk->sk_refcnt))
++	if (!refcount_dec_and_test(&sk->sk_refcnt))
+ 		return;
+ 
+ 	if (nlk->cb_running && nlk->cb.done) {
+@@ -2568,7 +2568,7 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
+ 			   sk_rmem_alloc_get(s),
+ 			   sk_wmem_alloc_get(s),
+ 			   nlk->cb_running,
+-			   atomic_read(&s->sk_refcnt),
++			   refcount_read(&s->sk_refcnt),
+ 			   atomic_read(&s->sk_drops),
+ 			   sock_i_ino(s)
+ 			);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 90fd38d..643302b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4495,7 +4495,7 @@ static int packet_seq_show(struct seq_file *seq, void *v)
+ 		seq_printf(seq,
+ 			   "%pK %-6d %-4d %04x   %-5d %1d %-6u %-6u %-6lu\n",
+ 			   s,
+-			   atomic_read(&s->sk_refcnt),
++			   refcount_read(&s->sk_refcnt),
+ 			   s->sk_type,
+ 			   ntohs(po->num),
+ 			   po->ifindex,
+diff --git a/net/phonet/socket.c b/net/phonet/socket.c
+index 29c7f75..1b050dd 100644
+--- a/net/phonet/socket.c
++++ b/net/phonet/socket.c
+@@ -614,7 +614,7 @@ static int pn_sock_seq_show(struct seq_file *seq, void *v)
+ 			sk_wmem_alloc_get(sk), sk_rmem_alloc_get(sk),
+ 			from_kuid_munged(seq_user_ns(seq), sock_i_uid(sk)),
+ 			sock_i_ino(sk),
+-			atomic_read(&sk->sk_refcnt), sk,
++			refcount_read(&sk->sk_refcnt), sk,
+ 			atomic_read(&sk->sk_drops));
+ 	}
+ 	seq_pad(seq, '\n');
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index f1299f5..a2ad448 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -747,7 +747,7 @@ static int rxrpc_release_sock(struct sock *sk)
+ {
+ 	struct rxrpc_sock *rx = rxrpc_sk(sk);
+ 
+-	_enter("%p{%d,%d}", sk, sk->sk_state, atomic_read(&sk->sk_refcnt));
++	_enter("%p{%d,%d}", sk, sk->sk_state, refcount_read(&sk->sk_refcnt));
+ 
+ 	/* declare the socket closed for business */
+ 	sock_orphan(sk);
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index eb0e9ba..d6e9711 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -340,7 +340,7 @@ META_COLLECTOR(int_sk_refcnt)
+ 		*err = -1;
+ 		return;
+ 	}
+-	dst->value = atomic_read(&skb->sk->sk_refcnt);
++	dst->value = refcount_read(&skb->sk->sk_refcnt);
+ }
+ 
+ META_COLLECTOR(int_sk_rcvbuf)
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 1b92b72..101e359 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2313,7 +2313,7 @@ static void tipc_sk_remove(struct tipc_sock *tsk)
+ 	struct tipc_net *tn = net_generic(sock_net(sk), tipc_net_id);
+ 
+ 	if (!rhashtable_remove_fast(&tn->sk_rht, &tsk->node, tsk_rht_params)) {
+-		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
++		WARN_ON(refcount_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
+ }
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 7c2e21e..c885254 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2847,7 +2847,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+ 
+ 		seq_printf(seq, "%pK: %08X %08X %08X %04X %02X %5lu",
+ 			s,
+-			atomic_read(&s->sk_refcnt),
++			refcount_read(&s->sk_refcnt),
+ 			0,
+ 			s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,
+ 			s->sk_type,
+-- 
+2.7.4
+

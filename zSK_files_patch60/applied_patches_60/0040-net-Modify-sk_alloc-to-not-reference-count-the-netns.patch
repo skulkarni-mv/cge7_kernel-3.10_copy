@@ -1,0 +1,84 @@
+From 2dc0dd8d8138728477252bc057a3e37f985a06de Mon Sep 17 00:00:00 2001
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 8 May 2015 21:10:31 -0500
+Subject: [PATCH 40/60] net: Modify sk_alloc to not reference count the netns
+ of kernel sockets.
+
+Now that sk_alloc knows when a kernel socket is being allocated modify
+it to not reference count the network namespace of kernel sockets.
+
+Keep track of if a socket needs reference counting by adding a flag to
+struct sock called sk_net_refcnt.
+
+Update all of the callers of sock_create_kern to stop using
+sk_change_net and sk_release_kernel as those hacks are no longer
+needed, to avoid reference counting a kernel socket.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/26abe14379f8e2fa3fd1bcf97c9a7ad9364886fe - v4.2-rc1 [SK - 0.8465] - 1 file only
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/l2tp/l2tp_core.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 2ff21e2..b4bc12d 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1501,9 +1501,10 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
+ 		if (sock)
+ 			inet_shutdown(sock, 2);
+ 	} else {
+-		if (sock)
++		if (sock) {
+ 			kernel_sock_shutdown(sock, SHUT_RDWR);
+-		sk_release_kernel(sk);
++			sock_release(sock);
++		}
+ 	}
+ 
+ 	l2tp_tunnel_sock_put(sk);
+@@ -1568,13 +1569,11 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		if (cfg->local_ip6 && cfg->peer_ip6) {
+ 			struct sockaddr_l2tpip6 ip6_addr = {0};
+ 
+-			err = sock_create_kern(&init_net, AF_INET6, SOCK_DGRAM,
++			err = sock_create_kern(net, AF_INET6, SOCK_DGRAM,
+ 					  IPPROTO_L2TP, &sock);
+ 			if (err < 0)
+ 				goto out;
+ 
+-			sk_change_net(sock->sk, net);
+-
+ 			ip6_addr.l2tp_family = AF_INET6;
+ 			memcpy(&ip6_addr.l2tp_addr, cfg->local_ip6,
+ 			       sizeof(ip6_addr.l2tp_addr));
+@@ -1598,13 +1597,11 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		{
+ 			struct sockaddr_l2tpip ip_addr = {0};
+ 
+-			err = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM,
++			err = sock_create_kern(net, AF_INET, SOCK_DGRAM,
+ 					  IPPROTO_L2TP, &sock);
+ 			if (err < 0)
+ 				goto out;
+ 
+-			sk_change_net(sock->sk, net);
+-
+ 			ip_addr.l2tp_family = AF_INET;
+ 			ip_addr.l2tp_addr = cfg->local_ip;
+ 			ip_addr.l2tp_conn_id = tunnel_id;
+@@ -1631,7 +1628,7 @@ out:
+ 	*sockp = sock;
+ 	if ((err < 0) && sock) {
+ 		kernel_sock_shutdown(sock, SHUT_RDWR);
+-		sk_release_kernel(sock->sk);
++		sock_release(sock);
+ 		*sockp = NULL;
+ 	}
+ 
+-- 
+2.7.4
+

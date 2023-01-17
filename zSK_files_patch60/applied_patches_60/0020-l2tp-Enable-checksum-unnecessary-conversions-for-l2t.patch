@@ -1,0 +1,31 @@
+From 73d5a7a6872b970cfae4881798d025d628c04c5a Mon Sep 17 00:00:00 2001
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 31 Aug 2014 15:12:46 -0700
+Subject: [PATCH 20/60] l2tp: Enable checksum unnecessary conversions for
+ l2tp/UDP sockets
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+https://github.com/torvalds/linux/commit/72297c59f7188d12f24daee1877e7dcca787cf1f - v3.18-rc1 [SK - 0.755]
+Signed-off-by: Shubham Kulkarni <skulkarni@mvista.com>
+---
+ net/l2tp/l2tp_core.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 6d7986b..f287a56 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1581,6 +1581,8 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		if (err < 0)
+ 			goto out;
+ 
++		udp_set_convert_csum(sock->sk, true);
++
+ 		break;
+ 
+ 	case L2TP_ENCAPTYPE_IP:
+-- 
+2.7.4
+

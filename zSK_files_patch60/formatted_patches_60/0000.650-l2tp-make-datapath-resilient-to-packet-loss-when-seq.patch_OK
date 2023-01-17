@@ -1,0 +1,104 @@
+From a0dbd822273ce7660bf35525d61d7a8ac5e679a3 Mon Sep 17 00:00:00 2001
+From: James Chapman <jchapman@katalix.com>
+Date: Tue, 2 Jul 2013 20:29:00 +0100
+Subject: [PATCH] l2tp: make datapath resilient to packet loss when sequence
+ numbers enabled
+
+If L2TP data sequence numbers are enabled and reordering is not
+enabled, data reception stops if a packet is lost since the kernel
+waits for a sequence number that is never resent. (When reordering is
+enabled, data reception restarts when the reorder timeout expires.) If
+no reorder timeout is set, we should count the number of in-sequence
+packets after the out-of-sequence (OOS) condition is detected, and reset
+sequence number state after a number of such packets are received.
+
+For now, the number of in-sequence packets while in OOS state which
+cause the sequence number state to be reset is hard-coded to 5. This
+could be configurable later.
+
+Signed-off-by: James Chapman <jchapman@katalix.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/l2tp/l2tp_core.c | 36 +++++++++++++++++++++++++++++++-----
+ net/l2tp/l2tp_core.h |  3 +++
+ 2 files changed, 34 insertions(+), 5 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 735cc06..feae495a 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -572,12 +572,33 @@ static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
+ 		 * reorder queue, in order of ns.
+ 		 */
+ 		l2tp_recv_queue_skb(session, skb);
++		goto out;
++	}
++
++	/* Packet reordering disabled. Discard out-of-sequence packets, while
++	 * tracking the number if in-sequence packets after the first OOS packet
++	 * is seen. After nr_oos_count_max in-sequence packets, reset the
++	 * sequence number to re-enable packet reception.
++	 */
++	if (L2TP_SKB_CB(skb)->ns == session->nr) {
++		skb_queue_tail(&session->reorder_q, skb);
+ 	} else {
+-		/* Packet reordering disabled. Discard out-of-sequence
+-		 * packets
+-		 */
+-		if ((L2TP_SKB_CB(skb)->ns != session->nr) &&
+-		    (!session->reorder_skip)) {
++		u32 nr_oos = L2TP_SKB_CB(skb)->ns;
++		u32 nr_next = (session->nr_oos + 1) & session->nr_max;
++
++		if (nr_oos == nr_next)
++			session->nr_oos_count++;
++		else
++			session->nr_oos_count = 0;
++
++		session->nr_oos = nr_oos;
++		if (session->nr_oos_count > session->nr_oos_count_max) {
++			session->reorder_skip = 1;
++			l2tp_dbg(session, L2TP_MSG_SEQ,
++				 "%s: %d oos packets received. Resetting sequence numbers\n",
++				 session->name, session->nr_oos_count);
++		}
++		if (!session->reorder_skip) {
+ 			atomic_long_inc(&session->stats.rx_seq_discards);
+ 			l2tp_dbg(session, L2TP_MSG_SEQ,
+ 				 "%s: oos pkt %u len %d discarded, waiting for %u, reorder_q_len=%d\n",
+@@ -589,6 +610,7 @@ static int l2tp_recv_data_seq(struct l2tp_session *session, struct sk_buff *skb)
+ 		skb_queue_tail(&session->reorder_q, skb);
+ 	}
+ 
++out:
+ 	return 0;
+ 
+ discard:
+@@ -1852,6 +1874,10 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 		else
+ 			session->nr_max = 0xffffff;
+ 		session->nr_window_size = session->nr_max / 2;
++		session->nr_oos_count_max = 4;
++
++		/* Use NR of first received packet */
++		session->reorder_skip = 1;
+ 
+ 		sprintf(&session->name[0], "sess %u/%u",
+ 			tunnel->tunnel_id, session->session_id);
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 4b9a3b7..66a559b 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -104,6 +104,9 @@ struct l2tp_session {
+ 	struct sk_buff_head	reorder_q;	/* receive reorder queue */
+ 	u32			nr_max;		/* max NR. Depends on tunnel */
+ 	u32			nr_window_size;	/* NR window size */
++	u32			nr_oos;		/* NR of last OOS packet */
++	int			nr_oos_count;	/* For OOS recovery */
++	int			nr_oos_count_max;
+ 	struct hlist_node	hlist;		/* Hash list node */
+ 	atomic_t		ref_count;
+ 
+-- 
+2.7.4
+

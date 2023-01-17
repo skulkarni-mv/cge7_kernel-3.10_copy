@@ -1,0 +1,64 @@
+From b5d2b2858fe9ff0deda75a65dbb486612cb37a3d Mon Sep 17 00:00:00 2001
+From: stephen hemminger <stephen@networkplumber.org>
+Date: Thu, 9 Jan 2014 22:22:27 -0800
+Subject: [PATCH] l2tp: make local functions static
+
+Avoid needless export of local functions
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Acked-by: James Chapman <jchapman@katalix.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/l2tp/l2tp_core.c | 6 ++----
+ net/l2tp/l2tp_core.h | 2 --
+ 2 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 9af77d9..735d0f6 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -176,7 +176,7 @@ l2tp_session_id_hash_2(struct l2tp_net *pn, u32 session_id)
+  * owned by userspace.  A struct sock returned from this function must be
+  * released using l2tp_tunnel_sock_put once you're done with it.
+  */
+-struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel)
++static struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel)
+ {
+ 	int err = 0;
+ 	struct socket *sock = NULL;
+@@ -202,10 +202,9 @@ struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel)
+ out:
+ 	return sk;
+ }
+-EXPORT_SYMBOL_GPL(l2tp_tunnel_sock_lookup);
+ 
+ /* Drop a reference to a tunnel socket obtained via. l2tp_tunnel_sock_put */
+-void l2tp_tunnel_sock_put(struct sock *sk)
++static void l2tp_tunnel_sock_put(struct sock *sk)
+ {
+ 	struct l2tp_tunnel *tunnel = l2tp_sock_to_tunnel(sk);
+ 	if (tunnel) {
+@@ -217,7 +216,6 @@ void l2tp_tunnel_sock_put(struct sock *sk)
+ 	}
+ 	sock_put(sk);
+ }
+-EXPORT_SYMBOL_GPL(l2tp_tunnel_sock_put);
+ 
+ /* Lookup a session by id in the global session list
+  */
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 1ee9f69..1f01ba3 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -238,8 +238,6 @@ static inline struct l2tp_tunnel *l2tp_sock_to_tunnel(struct sock *sk)
+ 	return tunnel;
+ }
+ 
+-struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel);
+-void l2tp_tunnel_sock_put(struct sock *sk);
+ struct l2tp_session *l2tp_session_find(struct net *net,
+ 				       struct l2tp_tunnel *tunnel,
+ 				       u32 session_id);
+-- 
+2.7.4
+
