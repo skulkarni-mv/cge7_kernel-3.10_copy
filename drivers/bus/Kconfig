@@ -1,0 +1,59 @@
+#
+# Bus Devices
+#
+
+menu "Bus devices"
+
+config MVEBU_MBUS
+	bool
+	depends on PLAT_ORION
+	help
+	  Driver needed for the MBus configuration on Marvell EBU SoCs
+	  (Kirkwood, Dove, Orion5x, MV78XX0 and Armada 370/XP).
+
+config OMAP_OCP2SCP
+	tristate "OMAP OCP2SCP DRIVER"
+	depends on ARCH_OMAP2PLUS
+	help
+	  Driver to enable ocp2scp module which transforms ocp interface
+	  protocol to scp protocol. In OMAP4, USB PHY is connected via
+	  OCP2SCP and in OMAP5, both USB PHY and SATA PHY is connected via
+	  OCP2SCP.
+
+config OMAP_INTERCONNECT
+	tristate "OMAP INTERCONNECT DRIVER"
+	depends on ARCH_OMAP2PLUS
+
+	help
+	  Driver to enable OMAP interconnect error handling driver.
+
+config ARM_CCI
+	bool "ARM CCI driver support"
+	depends on ARM
+	help
+	  Driver supporting the CCI cache coherent interconnect for ARM
+	  platforms.
+
+config XGENE_AHBC
+        tristate "X-Gene SoC AHB Bus Driver"
+        depends on ARM64 && ARCH_XGENE
+        default y if ARCH_XGENE
+        help
+          X-Gene SoC AHB bus driver is required for SPI and
+          SDIO to function properly.
+
+config XGENE_PCP
+        tristate "X-Gene SoC PCP Bus Driver"
+        depends on ARM64 && ARCH_XGENE
+        default y if ARCH_XGENE
+        help
+          X-Gene SoC PCP bus driver is required for error reporting.
+
+config XGENE_PMU
+        tristate "X-Gene SoC PMU Driver"
+        depends on ARM64 && ARCH_XGENE
+        default y if ARCH_XGENE
+        help
+          X-Gene SoC PMU driver.
+
+endmenu

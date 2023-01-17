@@ -1,0 +1,106 @@
+config CLKSRC_OF
+	bool
+
+config CLKSRC_I8253
+	bool
+
+config CLKEVT_I8253
+	bool
+
+config I8253_LOCK
+	bool
+
+config CLKBLD_I8253
+	def_bool y if CLKSRC_I8253 || CLKEVT_I8253 || I8253_LOCK
+
+config CLKSRC_MMIO
+	bool
+
+config DW_APB_TIMER
+	bool
+
+config DW_APB_TIMER_OF
+	bool
+
+config ARMADA_370_XP_TIMER
+	bool
+	select CLKSRC_OF
+
+config SUN4I_TIMER
+	bool
+
+config VT8500_TIMER
+	bool
+
+config CADENCE_TTC_TIMER
+	bool
+
+config CLKSRC_NOMADIK_MTU
+	bool
+	depends on (ARCH_NOMADIK || ARCH_U8500)
+	select CLKSRC_MMIO
+	help
+	  Support for Multi Timer Unit. MTU provides access
+	  to multiple interrupt generating programmable
+	  32-bit free running decrementing counters.
+
+config CLKSRC_NOMADIK_MTU_SCHED_CLOCK
+	bool
+	depends on CLKSRC_NOMADIK_MTU
+	help
+	  Use the Multi Timer Unit as the sched_clock.
+
+config CLKSRC_DBX500_PRCMU
+	bool "Clocksource PRCMU Timer"
+	depends on UX500_SOC_DB8500
+	default y
+	help
+	  Use the always on PRCMU Timer as clocksource
+
+config CLKSRC_DBX500_PRCMU_SCHED_CLOCK
+	bool "Clocksource PRCMU Timer sched_clock"
+	depends on (CLKSRC_DBX500_PRCMU && !CLKSRC_NOMADIK_MTU_SCHED_CLOCK)
+	default y
+	help
+	  Use the always on PRCMU Timer as sched_clock
+
+config ARM_ARCH_TIMER
+	bool
+	select CLKSRC_OF if OF
+
+config ARM_TIMER_SP804
+	bool "Support for Dual Timer SP804 module"
+	depends on GENERIC_SCHED_CLOCK
+	select CLKSRC_MMIO
+	select CLKSRC_OF if OF
+
+config ARM_SP804_AS_PRIVATE_TIMER
+	bool "Enable ARM dual timer SP804 as private timer"
+	depends on ARM_TIMER_SP804
+	default n
+	help
+	 Use ARM dual timer sp804 as private timer.
+	 For multiple instances of SP804, only one can be used as standard clock
+	 source and remaining instances are silently ignored.
+	 This config extends SP804 module support as private timers.
+	 Each instance provides two timers and user level application can use
+	 posix based timer APIs to create separate timers as per requirement.
+
+config CLKSRC_METAG_GENERIC
+	def_bool y if METAG
+	help
+	  This option enables support for the Meta per-thread timers.
+
+config CLKSRC_EXYNOS_MCT
+	def_bool y if ARCH_EXYNOS
+	help
+	  Support for Multi Core Timer controller on Exynos SoCs.
+
+config CLKSRC_SAMSUNG_PWM
+	bool
+	select CLKSRC_MMIO
+	help
+	  This is a new clocksource driver for the PWM timer found in
+	  Samsung S3C, S5P and Exynos SoCs, replacing an earlier driver
+	  for all devicetree enabled platforms. This driver will be
+	  needed only on systems that do not have the Exynos MCT available.

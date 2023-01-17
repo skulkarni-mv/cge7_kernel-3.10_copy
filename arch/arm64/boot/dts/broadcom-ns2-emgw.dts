@@ -1,0 +1,213 @@
+/*
+ * Device Tree file for Equipment Management Gateway (EMGW) board
+ * This board is based on Broadcom NorthStar2 SoC
+ *
+ *  Copyright (C) 2015 MontaVista Software, LLC
+ *
+ * This file is licensed under the terms of the GNU General Public
+ * License version 2.  This program is licensed "as is" without any
+ * warranty of any kind, whether express or implied. *
+ */
+
+/dts-v1/;
+
+#include "bcm_ns2.dtsi"
+
+/ {
+	model = "Broadcom NorthStar2 based EMGW Board";
+	compatible = "bcm,ns2";
+
+	chosen {
+		bootargs = "maxcpus=4 console=ttyS0,115200n8 debug earlyprintk=uart8250-32bit,0x66130000 pci=pcie_bus_safe";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x80000000 0x00000002 0x00000000>;
+	};
+
+	clocks {
+		mcp2515_osc: mcp2515_osc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <20000000>;
+		};
+	};
+
+	pinctrl@0x6501d130 {
+		function-select = "uart1", "uart2";
+	};
+};
+
+&nand {
+	bus-width = <8>;
+	block-size = <0x5>;
+	device-size = <0x1 0x00000000>;
+	page-size = <0x3>;
+	device-width = <0x8>;
+	col-adr-bytes = <0x2>;
+	blk-adr-bytes = <0x3>;
+	ful-adr-bytes = <0x5>;
+	spare-area-size = <0x1B>;
+	sector-size-1k = <0x0>;
+	ecc-level = <0x8>;
+
+        partition@0 {
+                label = "SwBank0";
+                reg = <0x00000000 0x40000000>; /*  1GB */
+        };
+        partition@1 {
+                label = "SwBank1";
+                reg = <0x40000000 0x40000000>; /* 1GB */
+        };
+        partition@2 {
+                label = "Data0";
+                reg = <0x80000000 0x40000000>; /* 1GB */
+        };
+        partition@3 {
+                label = "Data1";
+                reg = <0xC0000000 0x30000000>; /* 768MB */
+        };
+        partition@4 {
+                label = "diag-linux";
+                reg = <0xF0000000 0x08000000>; /* 128MB */
+        };
+        partition@5 {
+                label = "diag-test";
+                reg = <0xF8000000 0x04000000>; /* 64MB */
+        };
+        partition@6 {
+                label = "diag-conf";
+                reg = <0xFC000000 0x04000000>; /* 64MB */
+        };
+};
+
+&qspi {
+        flash: m25p80@0 {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "m25p80";
+                spi-max-frequency = <62500000>;
+                m25p,default-addr-width = <3>;
+                reg = <0 0x0 0 0x0>;
+
+                partition@0 {
+                        label = "bl0";
+                        reg = <0x00000000 0x00080000>; /*  512KB */
+                };
+
+                partition@1 {
+                        label = "fip";
+                        reg = <0x00080000 0x00100000>; /* 1024KB */
+                };
+
+                partition@2 {
+                         label = "unused";
+                         reg = <0x00180000 0x00060000>;/*  384KB */
+                };
+
+                partition@3 {
+                        label = "env";
+                        reg = <0x001E0000 0x00010000>; /*   64KB */
+                };
+
+                partition@4 {
+                        label = "MFG";
+                        reg = <0x001F0000 0x00004000>; /*   16KB */
+                };
+
+                partition@5 {
+                        label = "IDT";
+                        reg = <0x001F4000 0x00002000>; /*   8KB */
+                };
+                partition@6 {
+                        label = "reserved";
+                        reg = <0x001F6000 0x0000A000>; /*   40KB */
+                };
+	};
+};
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&uart3 {
+	clock-frequency = <23961600>;
+	status = "ok";
+};
+
+&i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	i2cswitch@71 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,pca9547";
+		reg = <0x71>;
+
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			max6639@2C {
+				compatible = "maxim,max6639";
+				reg = <0x2C>;
+			};
+		};
+	};
+
+	spd: at24@52 {
+			compatible = "at24,spd";
+			reg = <0x52>;
+	};
+
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&gpio {
+	#interrupt-cells = <2>;
+};
+
+&ssp0 {
+	status = "disabled";
+};
+
+&ssp1 {
+	num-cs = <1>;
+	status = "okay";
+
+	mcp2515@0 {
+		compatible = "microchip,mcp2515";
+		reg = <0 0>;
+		interrupt-parent = <&gpio>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
+		spi-max-frequency = <5000000>;
+		clocks = <&mcp2515_osc>;
+		spi-cpha = <1>;
+		spi-cpol = <1>;
+		pl022,hierarchy = <0>;
+		pl022,interface = <0>;
+		pl022,slave-tx-disable = <0>;
+		pl022,com-mode = <1>;
+		pl022,rx-level-trig = <0>;
+		pl022,tx-level-trig = <0>;
+		pl022,ctrl-len = <7>;
+		pl022,wait-state = <0>;
+		pl022,duplex = <0>;
+	};
+};

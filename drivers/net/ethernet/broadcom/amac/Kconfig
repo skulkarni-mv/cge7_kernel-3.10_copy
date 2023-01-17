@@ -1,0 +1,23 @@
+#
+# Broadcom AMAC Network configuration
+#
+
+config NET_BCM_AMAC
+	tristate "Broadcom AMAC Gigabit Ethernet support"
+   depends on BROADCOM_PHY && BROADCOM_CMIC_MDIO
+	---help---
+	  This driver supports the on-chip AMAC Ethernet device
+
+	  To compile this driver as a module, choose M here.
+
+config NET_BCM_AMAC_CUST_VLAN
+	bool "Broadcom AMAC driver Custom VLAN support"
+	depends on NET_BCM_AMAC
+	default n
+	---help---
+	  This option enables adding a custom VLAN tag in the
+	  driver.
+
+	  This option should be removed once the implementation
+	  is moved to the application.
+

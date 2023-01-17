@@ -1,0 +1,116 @@
+#
+# Copyright (C) 2013, Broadcom Corporation. All Rights Reserved.
+# 
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+menu "Broadcom iProc Drivers"
+	depends on ARCH_IPROC
+
+
+source "drivers/staging/bcmdrivers/timer/Kconfig"
+source "drivers/staging/bcmdrivers/otp/Kconfig"
+source "drivers/staging/bcmdrivers/rng/Kconfig"
+source "drivers/staging/bcmdrivers/mdio/Kconfig"
+source "drivers/staging/bcmdrivers/gsio_spi/Kconfig"
+source "drivers/staging/bcmdrivers/sd/Kconfig"
+source "drivers/staging/bcmdrivers/gpio/Kconfig"
+source "drivers/staging/bcmdrivers/qspi/Kconfig"
+source "drivers/staging/bcmdrivers/nand/Kconfig"
+source "drivers/staging/bcmdrivers/usb2h/Kconfig"
+source "drivers/staging/bcmdrivers/usb3h/Kconfig"
+source "drivers/staging/bcmdrivers/usbd/Kconfig"
+source "drivers/staging/bcmdrivers/pcie/Kconfig"
+source "drivers/staging/bcmdrivers/gmac/et/Kconfig"
+source "drivers/staging/bcmdrivers/gmac/hnd/Kconfig"
+#source "../../bcmdrivers/smbus/Kconfig"
+source "drivers/staging/bcmdrivers/sra/Kconfig"
+source "drivers/staging/bcmdrivers/pmu/Kconfig"
+source "drivers/staging/bcmdrivers/dte/Kconfig"
+
+
+config BCM_IPROC_CA9_PREFETCH
+	tristate "CortexA9 cache auto-prefetching support"
+	depends on ARCH_IPROC
+	default n
+	help
+	  Enable iProc CortexA9 L1/L2 cache auto-prefetching support
+	
+	  If unsure, say N.
+
+config BCM_BARRIER_PERFORMANCE
+	bool "Linux memory barrier performance improvement"
+	depends on ARCH_IPROC
+	default n
+	help
+	  Enable linux memory barrier performance improvements
+	
+	  If unsure, say N.
+
+config BCM_MEM_OPTIMIZATION
+	bool "ARM Memory library optimization"
+	depends on ARCH_IPROC
+	default n
+	help
+	  Enable ARM memory library optimization
+	
+	  If unsure, say N.
+
+config BROADCOM_CUSTOM_SENDFILE
+	bool "Custom Sendfile optimization"
+	depends on ARCH_IPROC
+	default n
+	help
+	  Enable Broadcom Custom Sendfile optimization
+	
+	  If unsure, say N.
+
+config BCM_CUSTOM_RECVFILE
+	bool "Custom Receivefile optimization"
+	depends on ARCH_IPROC
+	default n
+	help
+	  Enable Broadcom Custom Receivefile optimization
+	
+	  If unsure, say N.
+
+config BCM_CUSTOM_RECVFILE_MAX_PERF
+# Enabling BCM_CUSTOM_RECVFILE_MAX_PERF gives maximum write performance 
+# at the risk of filesystem errors (due to skipping cache invalidation 
+# on writes) and exposure to A0 hardware errata for lazy interrupts.
+	bool "Custom Receivefile Max Performance optimization"
+	depends on ARCH_IPROC && BCM_CUSTOM_RECVFILE
+	default n
+	help
+	  Enable Broadcom Custom Receivefile Maximum Performance optimization
+	
+	  If unsure, say N.
+
+config BCM_GRO_ENABLE
+	bool "Broadcom GRO Enable"
+	depends on ARCH_IPROC && (ET_NAPI_POLL || ET_NAPI2_POLL)
+	default n
+	help
+	  Enable Broadcom Generic Receive Offload
+	
+	  If unsure, say N.
+
+
+### kdrivers
+##  kdrivers/nor integrated at ../kernel/linux-3.6.5/drivers/mtd/Makefile
+##  CFI driver required to be integrated before the bsp file builds
+
+### hook for gpl driver master file
+source "drivers/staging/bcmgpldrivers/Kconfig"
+### hook for partner driver master file
+#source "../../bcmpartnerdrivers/Kconfig"
+endmenu

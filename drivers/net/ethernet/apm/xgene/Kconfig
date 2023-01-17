@@ -1,0 +1,61 @@
+config XGENE_NET
+	tristate "X-Gene Network Driver"
+	depends on ARCH_XGENE
+	select XGENE_QMTM
+	select PHYLIB
+	default n
+	help
+	  This is the Network driver for X-Gene 1 SOC Ethernet device.
+
+	  To compile this driver as a module, choose M here. This module will
+	  be called xgene_enet.
+
+if XGENE_NET
+config XGENE_NET_JUMBO_FRAME
+	bool "X-Gene 1 SoC Ethernet Jumbo frame support"
+	depends on XGENE_NET
+	default y
+	help
+	  Enable this option to have jumbo frame support
+
+config XGENE_NET_IPV4_FORWARD_OFFLOAD
+	bool "IPv4 Forward Offload using Inline Classifier"
+	depends on (XGENE_NET && XGENE_CLE && !XGENE_NET_JUMBO_FRAME && !XGENE_QMTM_ERROR)
+	default n
+	help
+	  Enable this option to have IPv4 Forward Offload support
+endif
+
+config NET_XGENE
+       tristate "APM X-Gene Ethernet Driver"
+       select PHYLIB
+       default y if ARCH_XGENE
+       help
+         This is the Ethernet driver for the on-chip ethernet interface on the
+         APM X-Gene SoC.
+
+         To compile this driver as a module, choose M here. This module will
+         be called enet_xgene.
+
+if NET_XGENE
+config NET_XGENE_MAC_TO_MAC
+	bool "Force SGMII MAC-to-MAC mode"
+	default n
+	help
+	"This option enable mac-to-mac for SGMII-2 2.5Gbps"
+
+config NET_XGENE_DEBUG_UTIL
+       bool "APM X-Gene Ethernet Debug Utility"
+       depends on NET_XGENE
+       default y
+       help
+         This option enables debug utility for X-Gene Ethernet Driver.
+
+config NET_XGENE_PHY
+       bool "APM X-Gene private PHY drivers"
+       default n
+       help
+          This option enables experimental XGene private PHY device driver
+
+endif
+

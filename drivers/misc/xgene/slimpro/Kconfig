@@ -1,0 +1,7 @@
+config XGENE_SLIMPRO_PM
+        bool "APM SoC X-Gene SlimPRO Power Management driver"
+        depends on XGENE_SLIMPRO_MBOX
+	default n
+        help
+          Provides interface to various Power Management parameters
+	  as implemented by X-Gene SlimPro co-processor

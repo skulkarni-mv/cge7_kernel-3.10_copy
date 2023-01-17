@@ -1,0 +1,730 @@
+/*
+ * Copyright 2014-2015 Broadcom Corporation.  All rights reserved.
+ *
+ * Unless you and Broadcom execute a separate written software license
+ * agreement governing use of this software, this software is licensed to you
+ * under the terms of the GNU General Public License as
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+ * kind, whether express or implied; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "skeleton.dtsi"
+
+/ {
+	model = "Broadcom Northstar2 SOC";
+	compatible = "brcm,ns2";
+	interrupt-parent = <&gic>;
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+        aliases {
+                ethernet0 = "/fa_noc/enet@61000000";
+        };
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57", "arm,armv8";
+			reg = <0 0>;
+			enable-method = "psci";
+			clock-frequency = <1000000>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57", "arm,armv8";
+			reg = <0 1>;
+			enable-method = "psci";
+			clock-frequency = <1000000>;
+		};
+
+		cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57", "arm,armv8";
+			reg = <0 2>;
+			enable-method = "psci";
+			clock-frequency = <1000000>;
+		};
+
+		cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57", "arm,armv8";
+			reg = <0 3>;
+			enable-method = "psci";
+			clock-frequency = <1000000>;
+		};
+	};
+
+	clocks {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		osc: osc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>;
+		};
+
+		genpll_scr: genpll_scr@6501d044 {
+			#clock-cells = <0>;
+			compatible = "brcm,ns2-genpll-scr";
+			reg = <0 0x6501d044 0 0x68>,
+			      <0 0x6501c020 0 0x4>;
+			clocks = <&osc>;
+		};
+
+		genpll_scr_clks: genpll_scr_clks@6501d098 {
+			#clock-cells = <1>;
+			compatible = "brcm,ns2-genpll-scr-clk";
+			reg = <0 0x6501d098 0 0x1c>;
+			clocks = <&genpll_scr>;
+			clock-output-names = "scr", "fs", "audio_ref", "unused1", "unused2", "unused3";
+		};
+
+		genpll_sw: genpll_sw@6501d044 {
+			#clock-cells = <0>;
+			compatible = "brcm,ns2-genpll-sw";
+			reg = <0 0x6501d044 0 0x94>,
+			      <0 0x6501c020 0 0x4>;
+			clocks = <&osc>;
+		};
+
+		genpll_sw_clks: genpll_sw_clks@6501d0c4 {
+			#clock-cells = <1>;
+			compatible = "brcm,ns2-genpll-sw-clk";
+			reg = <0 0x6501d0c4 0 0x1c>;
+			clocks = <&genpll_sw>;
+			clock-output-names = "rpe", "250", "nic", "chimp", "port", "sdio";
+		};
+
+		lcpll_ddr: lcpll_ddr@6501d04c {
+			#clock-cells = <0>;
+			compatible = "brcm,ns2-lcpll-ddr";
+			reg = <0 0x6501d04c 0 0x14>,
+			      <0 0x6501c020 0 0x4>;
+			clocks = <&osc>;
+		};
+
+		lcpll_ddr_clks: lcpll_ddr_clks@6501d058 {
+			#clock-cells = <1>;
+			compatible = "brcm,ns2-lcpll-ddr-clk";
+			reg = <0 0x6501d058 0 0x1c>;
+			clocks = <&lcpll_ports>;
+			clock-output-names = "pcie_sata_usb", "ddr", "unused4", "unused5", "unused6", "unused7";
+		};
+
+		lcpll_ports: lcpll_ports@6501d054 {
+			#clock-cells = <0>;
+			compatible = "brcm,ns2-lcpll-ports";
+			reg = <0 0x6501d054 0 0x34>,
+			      <0 0x6501c020 0 0x4>;
+			clocks = <&osc>;
+		};
+
+		lcpll_ports_clks: lcpll_ports_clks@6501d078 {
+			#clock-cells = <1>;
+			compatible = "brcm,ns2-lcpll-ports-clk";
+			reg = <0 0x6501d078 0 0x1c>;
+			clocks = <&lcpll_ports>;
+			clock-output-names = "wan", "rgmii", "unused8","unused9", "unused10", "unused11";
+		};
+
+		iprocmed: iprocmed {
+			#clock-cells = <0>;
+			compatible = "fixed-factor-clock";
+			clocks = <&genpll_scr_clks 0>;
+			clock-div = <2>;
+			clock-mult = <1>;
+			clock-output-names = "iprocmed";
+		};
+
+		iprocslow: iprocslow {
+			#clock-cells = <0>;
+			compatible = "fixed-factor-clock";
+			clocks = <&genpll_scr_clks 0>;
+			clock-div = <4>;
+			clock-mult = <1>;
+			clock-output-names = "iprocslow";
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_RAW(0xff) | IRQ_TYPE_EDGE_RISING)>, /* Secure Phys IRQ */
+			     <GIC_PPI 14 (GIC_CPU_MASK_RAW(0xff) | IRQ_TYPE_EDGE_RISING)>, /* Non-secure Phys IRQ */
+			     <GIC_PPI 11 (GIC_CPU_MASK_RAW(0xff) | IRQ_TYPE_EDGE_RISING)>, /* Virt IRQ */
+			     <GIC_PPI 10 (GIC_CPU_MASK_RAW(0xff) | IRQ_TYPE_EDGE_RISING)>; /* Hyp IRQ */
+		clock-frequency = <25000000>;
+	};
+
+       psci {
+               compatible = "arm,psci";
+               method = "smc";
+               cpu_suspend = <0xC4000001>;
+               cpu_off = <0x84000002>;
+               cpu_on = <0xC4000003>;
+               migrate = <0xC4000005>;
+       };
+
+	gic: interrupt-controller@65210000 {
+		compatible = "arm,gic-400";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <0 0x65210000 0 0x1000>,
+		      <0 0x65220000 0 0x1000>,
+		      <0 0x65240000 0 0x2000>,
+		      <0 0x65260000 0 0x1000>;
+		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_RAW(0xf) | IRQ_TYPE_LEVEL_HIGH)>; /* GIC Maintenence IRQ */
+
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+        fa_noc {
+                #address-cells = <2>;
+                #size-cells = <2>;
+                compatible = "simple-bus";
+                interrupt-parent = <&gic>;
+                ranges;
+
+                enet: enet@61000000 {
+                        compatible = "brcm,amac-enet";
+                        reg =   <0 0x61000000 0 0x1000>,
+                                <0 0x61090000 0 0x10>,
+                                <0 0x61090800 0 0x8>,
+                                <0 0x66000000 0 0x8>,
+                                <0 0x61030000 0 0x10>,
+                                <0 0x61090000 0 0x4>,
+                                <0 0x0301d178 0 0x4>,
+                                <0 0x61090000 0 0x1000>;
+                        reg-names =     "core_base",
+                                        "amac_io_ctrl",
+                                        "amac_idm_reset",
+                                        "icfg",
+                                        "rgmii_base",
+                                        "switch_global_base",
+                                        "crmu_io_pad_ctrl",
+                                        "srab_base";
+                        dma-coherent;
+                        interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+                        switchmode = <0>;
+                        local-mac-address = [00 10 19 D0 B7 A3];
+
+                        port@0 {
+                                port-id = <0>;
+                                port-type = <0>;
+                                phy-id = <16>;
+                        };
+                };
+	};
+
+	hs_noc {
+                #address-cells = <2>;
+                #size-cells = <2>;
+                compatible = "simple-bus";
+                interrupt-parent = <&gic>;
+                ranges;
+
+		nand: nand@0x66460000 {
+			compatible = "brcm,iproc-nand";
+			reg =   nand_regs: <0 0x66460000 0 0x1000>,
+			    nand_idm_regs: <0 0x67015000 0 0x1000>;
+			interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
+			#chip-selects = <1>;
+			wp-mode = <1>;
+			bus-width = <16>;
+			hw-auto-init = <1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
+		usbphy0: usbphy@0x67010800 {
+			#phy-cells = <1>;
+			compatible = "brcm,ns2-usb2-phy";
+			reg = m0_idm_reset_ctl:  <0 0x67010800 0 0x4>,
+			m0_idm_io_ctl_direct: <0 0x67010408 0 0x4>,
+			m0_crmu_usb2_ctl:     <0 0x6501D148 0 0x4>,
+			m0_ohci_ehci_strap:   <0 0x66490700 0 0x4>,
+			m0_phy_ctrl_p0:       <0 0x66490200 0 0x4>,
+			m0_phy_misc_status:   <0 0x66000888 0 0x4>,
+			m0_icfg_fsm:          <0 0x66000984 0 0x4>;
+			afe_corerdy_vddc = <13>;
+		};
+
+		ehci0: usb@0x66480000 {
+			compatible = "generic-ehci";
+			reg = <0 0x66480000 0 0x100>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usbphy0>;
+			phy-names = "bcm-ns2-usb2phy";
+		};
+
+		ohci0: usb@0x66480800 {
+			compatible = "generic-ohci";
+			reg = <0 0x66480800 0 0x100>;
+			interrupts = <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usbphy0>;
+			phy-names = "bcm-ns2-usb2phy";
+		};
+
+		usbphy1: usbphy@0x67011800 {
+			#phy-cells = <1>;
+			compatible = "brcm,ns2-usb2-phy";
+			reg = m1_idm_reset_ctl:  <0 0x67011800 0 0x4>,
+			m1_idm_io_ctl_direct: <0 0x67011408 0 0x4>,
+			m1_crmu_usb2_ctl:     <0 0x6501D148 0 0x4>,
+			m1_ohci_ehci_strap:   <0 0x664b0700 0 0x4>,
+			m1_phy_ctrl_p0:       <0 0x664b0200 0 0x4>,
+			m1_phy_misc_status:   <0 0x660008d8 0 0x4>,
+			m1_icfg_fsm:          <0 0x66000984 0 0x4>;
+			afe_corerdy_vddc = <6>;
+		};
+
+		ehci1: usb@0x664a0000 {
+			compatible = "generic-ehci";
+			reg = <0 0x664a0000 0 0x100>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usbphy1>;
+			phy-names = "bcm-ns2-usb2phy";
+		};
+
+		ohci1: usb@0x664a0800 {
+			compatible = "generic-ohci";
+			reg = <0 0x664a0800 0 0x100>;
+			interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usbphy1>;
+			phy-names = "bcm-ns2-usb2phy";
+		};
+
+		usbphy2: usbphy@0x67012800 {
+			#phy-cells = <1>;
+			compatible = "brcm,ns2-usb2-phy";
+			reg = drd_idm_reset_ctl:  <0 0x67012800 0 0x4>,
+			drd_idm_io_ctl_direct: <0 0x67012408 0 0x4>,
+			drd_crmu_usb2_ctl:     <0 0x6501D148 0 0x4>,
+			drd_ohci_ehci_strap:   <0 0x664d0700 0 0x4>,
+			drd_phy_ctrl_p0:       <0 0x664d0200 0 0x4>,
+			drd_phy_misc_status:   <0 0x66000978 0 0x4>,
+			drd_icfg_fsm:          <0 0x66000984 0 0x4>;
+			afe_corerdy_vddc = <18>;
+			enable-dual-role;
+		};
+
+		ehci2: usb@0x664c0000 {
+		       compatible = "generic-ehci";
+		       reg = <0 0x664c0000 0 0x100>;
+		       interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
+		       phys = <&usbphy2>;
+		       phy-names = "bcm-ns2-usb2phy";
+		};
+
+		ohci2: usb@0x664c0800 {
+		       compatible = "generic-ohci";
+		       reg = <0 0x664c0800 0 0x100>;
+		       interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>;
+		       phys = <&usbphy2>;
+		       phy-names = "bcm-ns2-usb2phy";
+		};
+
+		hwrng: hwrng@0x66220000 {
+			compatible = "brcm,iproc-rng200";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			reg = <0 0x66220000 0 0x28>;
+		};
+	};
+
+	apb {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "arm,amba-bus", "simple-bus";
+		interrupt-parent = <&gic>;
+		ranges;
+
+		pwm: pwm@66010000 {
+			compatible = "brcm,iproc-pwm";
+			reg = <0 0x66010000 0 0x24>;
+			#pwm-cells = <2>;
+			use_aux_reg;
+		};
+
+
+                mdio: mdio@66020000 {
+                        compatible = "brcm,cmic-mdio";
+                        reg = <0 0x6602023c 0 0x14>;
+                };
+
+		timer01: timer@66030000 {
+			compatible = "arm,sp804", "arm,primecell";
+			reg = <0 0x66030000 0 0x1000>;
+			granularity-us = <100000 1000000>;
+			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>, <&iprocslow>;
+			clock-names = "timclken1", "timclken2", "apb_pclk";
+			arm,sp804-disable-sched-clock-init;
+		};
+
+		timer23: timer@66040000 {
+			compatible = "arm,sp804_private_timer";
+			reg = <0 0x66040000 0 0x1000>;
+			granularity-us = <100000 1000000>;
+			interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>, <&iprocslow>;
+			clock-names = "timclken1", "timclken2", "apb_pclk";
+		};
+
+		timer45: timer@66050000 {
+			compatible = "arm,sp804_private_timer";
+			reg = <0 0x66050000 0 0x1000>;
+			granularity-us = <100000 1000000>;
+			interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>, <&iprocslow>;
+			clock-names = "timclken1", "timclken2", "apb_pclk";
+		};
+
+		timer67: timer@66060000 {
+			compatible = "arm,sp804_private_timer";
+			reg = <0 0x66060000 0 0x1000>;
+			interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>, <&iprocslow>;
+			clock-names = "timclken1", "timclken2", "apb_pclk";
+		};
+
+		/* NS2 Supports 3 watchdog's i.e.
+		 * chipCommonG:wdt@66090000 with SPI interrupt 406
+		 * chipCommonS:wdt@66230000 with SPI interrutp 409
+		 * and CRMU_WDT (dedicated for M0) and not exercised from A57
+		 * Normally we need only one watchdog so enabling only
+		 * chipCommonG:wdog but chipCommonS:wdog can also be enabled
+		 * on need basis.
+		 */
+
+		/* chipCommonG:wdog. */
+		wdt@66090000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0 0x66090000 0 0x1000>;
+			interrupts = <GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "wdogclk", "apb_pclk";
+		};
+
+		/* chipCommonS:wdog. */
+		wdt@66230000 {
+			compatible = "arm,sp805", "arm,primecell";
+			reg = <0 0x66230000 0 0x1000>;
+			interrupts = <GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "wdogclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		gpio: gpio@660a0000 {
+			compatible = "brcm,northstar2-gpio";
+			reg = <0 0x660a0000 0 0x50>;
+			ngpios = <32>;
+			linux,gpio-base = <0>;
+			gpio-controller;
+			interrupt-controller;
+			interrupts = <GIC_SPI 400 IRQ_TYPE_NONE>;
+		};
+
+		/* UART3 is defined first so it will be mapped
+		 * to ttyS0 in the kernel.
+		 */
+		uart3: serial@66130000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x66130000 0 0x100>;
+			clocks = <&osc>;
+			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart0: serial@66100000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x66100000 0 0x100>;
+			interrupts = <GIC_SPI 390 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart1: serial@66110000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x66110000 0 0x100>;
+			interrupts = <GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart2: serial@66120000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x66120000 0 0x100>;
+			interrupts = <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		qspi: spi@0x66470200 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "brcm,qspi_iproc";
+			reg = mspi_hw:<0 0x66470200 0 0x187>,
+			      bspi_hw:<0 0x66470000 0 0x04f>,
+			  bspi_hw_raf:<0 0x66470100 0 0x023>,
+			    qspi_intr:<0 0x664703a0 0 0x01b>,
+			     idm_qspi:<0 0x67017408 0 0x003>,
+			       cru_hw:<0 0x660E0000 0 0x003>;
+			interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>, /* start */
+				     <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>; /* end   */
+			clocks = <&iprocmed>;
+			clock-names = "iprocmed";
+		};
+
+		ssp0: ssp@0x66180000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0 0x66180000 0 0x1000>;
+			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "spiclk", "apb_pclk";
+			dmas = <&dma1 0
+				&dma1 1>;
+			dma-names = "rx", "tx";
+		};
+
+		ssp1: ssp@0x66190000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0 0x66190000 0 0x1000>;
+			interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&iprocslow>, <&iprocslow>;
+			clock-names = "spiclk", "apb_pclk";
+			dmas = <&dma1 2
+				&dma1 3>;
+			dma-names = "rx", "tx";
+		};
+
+		crmu_pwr_good: syscon@0x6501c02c {
+			compatible = "syscon";
+			reg = <0 0x6501c02c 0 0x14>;
+		};
+
+		bbl_auth: syscon@65024c84 {
+			compatible = "syscon";
+			reg = <0 0x65024c84 0 0x20>;
+		};
+
+		bbl: iproc_bbl@0x65026000 {
+			compatible = "iproc-bbl";
+			reg = <0 0x65026000 0 0x10>;
+			crmu_pwr_good_syscon = <&crmu_pwr_good>;
+			bbl_auth_syscon = <&bbl_auth>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			tamper-enable;
+			rtc-enable;
+		};
+
+		dma0: dma@61360000 {
+			compatible = "arm,dma-pl330", "arm,primecell";
+			reg = <0 0x61360000 0 0x1000>;
+			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <32>;
+			copy_align = <7>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+		};
+
+		dma1: dma@66330000 {
+			compatible = "arm,dma-pl330", "arm,primecell";
+			reg = <0 0x66330000 0 0x1000>;
+			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			#dma-channels = <8>;
+			#dma-requests = <32>;
+			copy_align = <7>;
+			clocks = <&iprocslow>;
+			clock-names = "apb_pclk";
+		};
+	};
+
+	i2c0: i2c@66080000 {
+		compatible = "brcm,iproc-i2c";
+		reg = <0 0x66080000 0 0x100>;
+		interrupts = <GIC_SPI 394 IRQ_TYPE_NONE>;
+		timing_config_2 = <0x3638>;
+		status = "disabled";
+	};
+
+	i2c1: i2c@660b0000 {
+		compatible = "brcm,iproc-i2c";
+		reg = <0 0x660b0000 0 0x100>;
+		interrupts = <GIC_SPI 395 IRQ_TYPE_NONE>;
+		timing_config_2 = <0x3638>;
+		status = "disabled";
+	};
+
+	pcie_nitro: pcie@60c00000 {
+		compatible = "brcm,iproc-pcie-nitro";
+		reg = <0 0x60c00000 0 0x1000>;
+
+		interrupts = <GIC_SPI 439 IRQ_TYPE_NONE>,
+			     <GIC_SPI 440 IRQ_TYPE_NONE>,
+			     <GIC_SPI 441 IRQ_TYPE_NONE>,
+			     <GIC_SPI 442 IRQ_TYPE_NONE>,
+			     <GIC_SPI 443 IRQ_TYPE_NONE>,
+			     <GIC_SPI 444 IRQ_TYPE_NONE>,
+			     <GIC_SPI 445 IRQ_TYPE_NONE>,
+			     <GIC_SPI 446 IRQ_TYPE_NONE>,
+			     <GIC_SPI 447 IRQ_TYPE_NONE>,
+			     <GIC_SPI 448 IRQ_TYPE_NONE>,
+			     <GIC_SPI 449 IRQ_TYPE_NONE>,
+			     <GIC_SPI 450 IRQ_TYPE_NONE>,
+			     <GIC_SPI 451 IRQ_TYPE_NONE>,
+			     <GIC_SPI 452 IRQ_TYPE_NONE>,
+			     <GIC_SPI 453 IRQ_TYPE_NONE>,
+			     <GIC_SPI 454 IRQ_TYPE_NONE>,
+			     <GIC_SPI 455 IRQ_TYPE_NONE>,
+			     <GIC_SPI 456 IRQ_TYPE_NONE>,
+			     <GIC_SPI 457 IRQ_TYPE_NONE>,
+			     <GIC_SPI 458 IRQ_TYPE_NONE>;
+		bus-range = <0x0 0x1>;
+
+		dma-coherent;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x41000000 0 0x00000000 0 0x00000000 0 0x00001000
+			  0x43000000 0 0x60000000 0 0x60000000 0 0x01000000>;
+	};
+
+	pcie0: pcie@20020000 {
+		compatible = "brcm,iproc-pcie";
+		reg = <0 0x20020000 0 0x1000>;
+
+		interrupts = <GIC_SPI 277 IRQ_TYPE_NONE>,
+			     <GIC_SPI 278 IRQ_TYPE_NONE>,
+			     <GIC_SPI 279 IRQ_TYPE_NONE>,
+			     <GIC_SPI 280 IRQ_TYPE_NONE>,
+			     <GIC_SPI 281 IRQ_TYPE_NONE>,
+			     <GIC_SPI 282 IRQ_TYPE_NONE>;
+		bus-range = <0x00 0xFF>;
+
+		dma-coherent;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0x00000000 0 0x00000000 0 0x00010000
+			  0x83000000 0 0x00000000 0 0x00000000 0 0x08000000>;
+	};
+
+	pcie1: pcie@50020000 {
+		compatible = "brcm,iproc-pcie";
+		reg = <0 0x50020000 0 0x1000>;
+
+		interrupts = <GIC_SPI 301 IRQ_TYPE_NONE>,
+			     <GIC_SPI 302 IRQ_TYPE_NONE>,
+			     <GIC_SPI 303 IRQ_TYPE_NONE>,
+			     <GIC_SPI 304 IRQ_TYPE_NONE>,
+			     <GIC_SPI 305 IRQ_TYPE_NONE>,
+			     <GIC_SPI 306 IRQ_TYPE_NONE>;
+		bus-range = <0x00 0xFF>;
+
+		dma-coherent;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0x00000000 0 0x00000000 0 0x00010000
+			  0x83000000 0 0x30000000 0 0x30000000 0 0x08000000>;
+	};
+
+	sata_phy: sata_phy@67004000 {
+		compatible = "brcm,phy-bcm-ns2-sata";
+		reg = <0 0x67004000 0 0x00001000>,
+		      <0 0x663F0000 0 0x00004000>;
+	};
+
+	sata: ahci@663F2000 {
+		compatible = "snps,spear-ahci";
+		reg = <0 0x663F2000 0 0x00001000>;
+		interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>;
+		phys = <&sata_phy>;
+		phy-names = "phy-bcm-ns2-sata";
+	};
+
+	pinctrl@0x6501d130 {
+		compatible = "brcm,northstar2-pinmux";
+		reg = <0 0x6501d130 0 0x8>;
+		/* The following selects the uart functions. They
+		 * can be optionally selected to enable
+		 * the selected uart functionality.
+		 */
+		function-select = "uart0", "uart1", "uart2";
+	};
+
+	/* FIXME - the iproc-reboot driver is writing directly to the CRMU
+	 * space.  This works, but the proper solution is to use the mailboxes
+	 * (similar to Cygnus).  However, the mailbox code is not currently
+	 * finished.  Once it is ready, this will need to be changed.
+	 */
+	iproc-reboot@65024090 {
+		compatible ="brcm,iproc-reboot";
+		reg = <0 0x65024090 0 0x4>;
+	};
+
+	led: led@610800000 {
+		compatible = "brcm,xgxs-led";
+		max-ports = <4>;
+		leds-per-port = <2>;
+		bits-per-led = <2>;
+		reg = <0x0 0x61080000 0x0 0x60>,
+		      <0x0 0x61080400 0x0 0x400>,
+		      <0x0 0x61080800 0x0 0x400>;
+	};
+};

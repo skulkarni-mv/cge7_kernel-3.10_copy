@@ -1,0 +1,47 @@
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+config APM_CLE
+	bool "APM86xxx Clasifier Engine API"
+	depends on APM86xxx
+	default n
+	---help---
+	  This is the Inline (for Ethernet) and LookAside Clasifier Engine API
+	  for APM86xxx SoC.
+
+config APM_NET
+	tristate "APM86xxx Network Driver"
+	depends on APM86xxx
+	select APM_CLE
+	select APMQM
+	default n
+	---help---
+	  This is the Network driver for APM86xxx Ethernet device.
+
+	  To compile this driver as a module, choose M here. This module will
+	  be called apm_enet.
+
+config APM_NET_SKB_HEADROOM
+	int "Additional skb headroom (bytes)"
+	depends on APM_NET
+	default "0"
+	help
+	  Additional receive skb headroom. Change this if requires a bigger
+	  SKB Headroom than the default for optimized performance (ie IPSEC in
+	  offline security). Note, the driver will always reserve at least
+	  2 bytes to make IP header aligned.
+
+	  If unsure, set to 0.
+
+config APM_VNET
+	tristate "APM86xxx Virtual Network Driver for ICC"
+	select APM_NET
+	select DMADEVICES
+	select APM_PKTDMA
+	depends on APM86xxx
+	default n
+	help
+	  This is the virtual network driver for Inter Core Communication.
+
+	  To compile this driver as a module, choose M here. This module will
+	  be called apm_vnet.

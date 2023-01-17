@@ -1,0 +1,124 @@
+menu "PCI host controller drivers"
+	depends on PCI
+
+config PCI_MVEBU
+	bool "Marvell EBU PCIe controller"
+	depends on ARCH_MVEBU
+
+config PCI_MVEBU_ARM64
+	bool "Marvell EBU PCIe controller for arm64 CPU"
+	depends on ARCH_ARMADA_8K
+	depends on OF
+
+config DRAM_ON_PCI
+	bool "Enable using DRAM on PCI endpoint"
+	depends on PCI_MVEBU_ARM64
+	help
+	 Enables running the system's DRAM on
+	 a PCI endpoint. This feature assumes all
+	 configuration is done by firmware and simply
+	 avoid messing with it.
+
+config IGNORE_ASYNC_ABORT
+	bool "Ignore asynchronous abort from configuration access"
+	depends on (ARM64 && ARCH_MVEBU)
+	help
+	 Ignore asynchronous abort caused during configuration
+	 access to ports with no endpoint connected.
+	 Warning: This will mask all Serror aborts
+	 regardless of their cause
+
+config PCI_XILINX_NWL
+	bool "NWL PCIe Core"
+	depends on ARCH_ZYNQMP && PCI_MSI
+	help
+	 Say 'Y' here if you want kernel to support for Xilinx
+	 NWL PCIe controller.The controller can act as Root Port
+	 or End Point.The current option selection will only
+	 support root port enabling.
+
+config PCIE_DW
+	bool
+
+config PCI_EXYNOS
+	bool "Samsung Exynos PCIe controller"
+	depends on SOC_EXYNOS5440
+	select PCIEPORTBUS
+	select PCIE_DW
+
+config PCI_XGENE_MSI
+	bool
+
+config PCI_XGENE
+	bool "X-Gene PCIe controller"
+	depends on ARCH_XGENE
+	depends on OF
+	select PCI_XGENE_MSI if PCI_MSI
+	help
+	  Say Y here if you want internal PCI support on APM X-Gene SoC.
+	  There are 5 internal PCIe ports available. Each port is GEN3 capable
+	  and have varied lanes from x1 to x8.
+
+config PCI_LAYERSCAPE
+	bool "Freescale Layerscape PCIe controller"
+	depends on OF && (ARM || ARM64)
+	select PCIE_DW
+	select MFD_SYSCON
+	help
+	  Say Y here if you want PCIe controller support on Layerscape SoCs.
+
+config PCI_VERSATILE
+	bool "ARM Versatile PB PCI controller"
+	depends on ARCH_VERSATILE
+
+config PCI_HOST_COMMON
+	bool
+	select PCI_ECAM
+
+config PCI_HOST_GENERIC
+	bool "Generic PCI host controller"
+	depends on (ARM || ARM64) && OF
+	select PCI_HOST_COMMON
+	help
+	  Say Y here if you want to support a simple generic PCI host
+	  controller, such as the one emulated by kvmtool.
+
+
+config PCIE_IPROC
+	bool "Broadcom iProc PCIe controller"
+	select ARCH_SUPPORTS_MSI
+	select PCI_DOMAINS if ARCH_NORTHSTAR2
+	depends on ARCH_BCM_IPROC || ARCH_NORTHSTAR2
+
+config PCIE_IPROC_MSIX
+	bool "MSI-X support on Broadcom iProc PCIe controller"
+	depends on PCIE_IPROC
+	default n
+
+
+config PCIE_ARMADA_8K
+	bool "Marvell Armada-8K PCIe controller"
+	depends on ARCH_MVEBU
+	select PCIE_DW
+	select PCIEPORTBUS
+	help
+	  Say Y here if you want to enable PCIe controller support on Armada-8K
+	  SoCs. The PCIe controller on Armada-8K is based on Designware hardware
+	  and therefore the driver re-uses the Designware core functions to
+	  implement the driver.
+
+config PCI_HOST_THUNDER_PEM
+	bool "Cavium Thunder PCIe controller to off-chip devices"
+	depends on OF && ARM64
+	select PCI_HOST_COMMON
+	help
+	  Say Y here if you want PCIe support for CN88XX Cavium Thunder SoCs.
+
+config PCI_HOST_THUNDER_ECAM
+	bool "Cavium Thunder ECAM controller to on-chip devices on pass-1.x silicon"
+	depends on OF && ARM64
+	select PCI_HOST_COMMON
+	help
+	  Say Y here if you want ECAM support for CN88XX-Pass-1.x Cavium Thunder SoCs.
+
+endmenu

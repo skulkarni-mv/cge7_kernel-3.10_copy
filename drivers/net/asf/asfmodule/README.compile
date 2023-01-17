@@ -1,0 +1,36 @@
+This section covers below ASF modules to compile as a built-in or a separate
+dynamically loadable kernel modules.
+In the current ASF branch, ASF QOS modules are not enabled for compilation.
+
+	asfffp/driver/
+	asfctrl/linux/ffp/
+	asfipsec/driver/
+	asfctrl/linux/ipsec/
+
+1) enabling ASF as a dynamically loadable module(default mode):
+--------------------------------------------------------------
+	Steps to compile as a separate dynamically loadable module.
+
+	#cd drivers/net/asf/asfmodule
+	#make ARCH=powerpc CROSS_COMPILE=<PATH>/powerpc-fsl-linux- srctree=/bsp/Cisco_1c/Nov18-t1042branch/sdk-devel/asf-linux
+For example:
+	#make ARCH=powerpc CROSS_COMPILE=/opt/fsl-networking/QorIQ-SDK-V1.6/sysroots/x86_64-fslsdk-linux/usr/bin/powerpc-fsl-linux/powerpc-fsl-linux- srctree=/bsp/Cisco_1c/Nov18-t1042branch/sdk-devel/asf-linux
+
+2) enabling ASF as a built in along with kernel:
+------------------------------------------------
+	Follow below steps to compile as static module.
+
+	cd drivers/net/asf
+
+	#Overwrite all the below 7 Makefiles with Makefile.static files
+
+	cp asfmodule/asfctrl/linux/qos/Makefile.static asfmodule/asfctrl/linux/qos/Makefile
+	cp asfmodule/asfctrl/linux/ipsec/Makefile.static asfmodule/asfctrl/linux/ipsec/Makefile
+	cp asfmodule/asfctrl/linux/ffp/Makefile.static asfmodule/asfctrl/linux/ffp/Makefile
+	cp asfmodule/asfqos/driver/Makefile.static asfmodule/asfqos/driver/Makefile
+	cp asfmodule/asfffp/driver/Makefile.static  asfmodule/asfffp/driver/Makefile
+	cp asfmodule/asfipsec/driver/Makefile.static asfmodule/asfipsec/driver/Makefile
+	cp asfmodule/Makefile.static asfmodule/Makefile
+
+	#Edit drivers/net/Makefile and have the below line
+	obj-$(CONFIG_AS_FASTPATH) += asf/asfmodule/

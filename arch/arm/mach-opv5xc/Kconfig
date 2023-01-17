@@ -1,0 +1,175 @@
+if ARCH_OPV5XC
+
+config HAVE_NITROX_PX_PROCESSOR
+	bool
+
+choice
+	prompt "Processor selection in OPV5XC family of devices"
+	default ARCH_OPV5XC_CX4
+
+config ARCH_OPV5XC_CX4
+	bool "OPV5XC_CX4"
+	select CPU_V7
+	select ARM_GIC
+	select PL310_ERRATA_588369 if CACHE_PL310
+	select PL310_ERRATA_727915 if CACHE_PL310
+	select ARM_ERRATA_720789
+	select ARM_ERRATA_751472
+	select ARM_ERRATA_753970
+	select PM_RUNTIME if CPU_IDLE
+	select ARM_CPU_SUSPEND if PM
+	select ARCH_NEEDS_CPU_IDLE_COUPLED if SMP
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_NITROX_PX_PROCESSOR
+	help
+	  OPV5XC FPGA-based Evaluation Board
+
+config ARCH_OPV5XC_ES1
+	bool "OPV5XC_ES1"
+	select CPU_V7
+	select ARM_GIC
+	select PL310_ERRATA_588369 if CACHE_PL310
+	select PL310_ERRATA_727915 if CACHE_PL310
+	select ARM_ERRATA_720789
+	select ARM_ERRATA_751472
+	select ARM_ERRATA_753970
+	select PM_RUNTIME if CPU_IDLE
+	select ARM_CPU_SUSPEND if PM
+	select ARCH_NEEDS_CPU_IDLE_COUPLED if SMP
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_NITROX_PX_PROCESSOR
+	help
+	  Enable OPV5XC ES1 SoC support in OPV5XC Validation Demo Board
+
+config ARCH_OPV5XC_ES2
+	bool "OPV5XC_ES2"
+	select CPU_V7
+	select ARM_GIC
+	select PL310_ERRATA_588369 if CACHE_PL310
+	select PL310_ERRATA_727915 if CACHE_PL310
+	select ARM_ERRATA_720789
+	select ARM_ERRATA_751472
+	select ARM_ERRATA_753970
+	select PM_RUNTIME if CPU_IDLE
+	select ARM_CPU_SUSPEND if PM
+	select ARCH_NEEDS_CPU_IDLE_COUPLED if SMP
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_NITROX_PX_PROCESSOR
+	help
+	  Enable OPV5XC ES2 SoC support in OPV5XC Validation Demo Board
+
+endchoice
+endif
+
+menu "OPV5XC Options"
+        depends on ARCH_OPV5XC
+
+comment "OPV5XC Board Type"
+	depends on (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+
+choice
+	prompt "Select the OPV5XC board type"
+	default MACH_OPV5XC_VALIDATION
+	help
+		Select the board type for OPV5XC.
+
+config MACH_OPV5XC_VALIDATION
+	bool "OPV5XC validation board"
+	depends on (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	help
+	  Open-Silicon OPV5XC Validation Board
+
+config MACH_OPV5XC_RG_BOARD
+	bool "OPV5XC Residential Gateway Board"
+	depends on (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	help
+	  Open-Silicon Residential Gateway Board
+
+config MACH_OPV5XC_NANA_VALIDATION
+	bool "OPV5XC NANA validation board"
+	depends on (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	help
+	  Open-Silicon OPV5XC NANA Validation Board
+
+endchoice
+
+comment "OPV5XC Specific Features"
+	depends on ARCH_OPV5XC
+
+config OPV5XC_15X15_CHIP
+	bool "OPV5XC 15X15 Chip Size"
+	default n
+	depends on (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	help
+	  The default setting is for 23x23 chip. If use 15x15 chip,
+	  please enable the option for 15x15 chip.
+		If unsure, say N.
+
+config OPV5XC_NITROX_CRYPTO_ENGINE
+	bool "System resource for NITROX"
+	default y
+	depends on HAVE_NITROX_PX_PROCESSOR
+	select OPV5XC_NITROX_WAY_TO_CONTROL_PMU if (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	help
+	  This is to include system resource for running NITROX hardware
+	  crypto engine.
+		If unsure, say N.
+
+config OPV5XC_NITROX_IPSEC
+	bool "Use Cavium IPSEC module with NITROX hardware acceleration"
+	default y
+	depends on OPV5XC_NITROX_CRYPTO_ENGINE
+	help
+	  This option is set if you want to use Cavium IPSEC module with
+	  Nitrox hardware acceleration. Extra Cavium IPSEC module is
+	  needed to get the full feature.
+		If unsure, say N.
+
+config OPV5XC_NITROX_WAY_TO_CONTROL_PMU
+	bool "NITROX: A way to control PMU"
+	default n
+	depends on OPV5XC_NITROX_CRYPTO_ENGINE
+	---help---
+	  In ES1 chip, crypto engine is powered off initially,
+	  we need to power up it ourselve first.
+	  However, we have no exported API to configure PMU so far.
+	  Until having one, do it by accessing
+	  PMU's IO base address directly.
+
+config OPV5XC_NITROX_HAVE_CRYPTO_ACP
+        bool "NITROX: Has ACP port support for system coherence"
+        default n
+        depends on OPV5XC_NITROX_CRYPTO_ENGINE && SMP && !ARCH_OPV5XC_CX4
+        ---help---
+	  If System has ACP support for Nitrox. Enable this option to offload system
+	  coherence operation to ACP.
+
+config OPV5XC_NITROX_UNINTERRUPT_POLLING
+	bool "NITROX: Not to interrupt polling thread"
+	default y
+	depends on OPV5XC_NITROX_CRYPTO_ENGINE
+	---help---
+	  We have polling thread and tasklet to handle encrypted/decrypted packets.
+	  It is for preventing interference each other (which causes out-of-order
+	  phenomenon).
+
+config OPV5XC_NITROX_FAKE_SA_BUNDLE
+	bool "NITROX: Fake SA bundle"
+	default y
+	depends on OPV5XC_NITROX_CRYPTO_ENGINE
+	---help---
+	  NITROX engine allows us combining multiple nitrox contexts
+	  into a whole one to implement SA bundle feature. However,
+	  by this way, each SA above shares the same sequence number.
+	  Turning this option on can let these SAs be independent, but
+	  throughput of SA bundle flows will become lower.
+
+config OPV5XC_NITROX_USE_KTIME_API
+	bool "NITROX: Use ktime APIs for self-test utility"
+	default y
+	depends on OPV5XC_NITROX_CRYPTO_ENGINE
+	---help---
+	  NITROX self-test utilitys adopt kernel jiffies to determine performance.
+	  To gain better time accuracy, use ktime APIs to replace it.
+
+endmenu

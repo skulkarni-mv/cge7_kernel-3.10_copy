@@ -1,0 +1,154 @@
+Broadcom AMAC Ethernet Switch Controller Device Tree Bindings
+-------------------------------------------------------------
+
+Required properties:
+	- compatible: Should be "brcm,amac-enet"
+	- reg       : Physical base address and size of the
+                      ethernet registers
+	- interrupts: AMAC Interrupt number
+
+Optional properties:
+	- switchmode: Switch mode (0: Switch bypass mode, 1: Switch mode)
+                      The switch mode is defaulted to 'Switch mode'.
+                      In the Switch bypass mode, only Port 0 will be enabled.
+	- tag_support: Adds support for handling tags in the driver in the
+                       switch mode
+                       0 - No tag support
+		       1 - BRCM tag support
+
+Required Child Node(s):
+Port information is read via child nodes. Atleast one child node is required.
+If the switch is disabled (switchmode=0), only the node with port-id=0 will be
+used.
+	- port-id   : Port number (0, 1 etc.).
+                      port-id has to be '0' when switchmode=0.
+	- phy-id    : Phy id associated with the port (0, 1, etc)
+	- port-type : Port type (0 - LAN port, 1 - PC port)
+                      LAN Ports have PAUSE frames disabled.
+                      Link status is reported based on LAN port, if available.
+                      PC Ports are regular Ethernet ports.
+ Optional property:
+ 	- speed     : Max speed of the Port (1000 or 100)
+ 			Default value of the port speed is 1000 or 1G.
+
+
+Examples:
+1. Port0 is LAN and Port1 is PC port in Switch mode (with BRCM tag support):
+
+	enet: enet@0x18042000 {
+		compatible = "brcm,amac-enet";
+		reg = core_regs: <0x18042000 0x1000>,
+			amac_io_ctrl: <0x18110408 0x10>,
+			amac_idm_reset: <0x18110800 0x4>,
+			mii_mgmt_ctrl_regs: <0x18002000 0x4>,
+			mii_cmd_data_regs: <0x18002004 0x4>,
+			icfg_regs: <0x18000000 0x1000>,
+			chip_dru_base: <0x0301d000 0x1000>,
+			srab_base: <0x18007000 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		switchmode = <1>;
+		tag_support = <1>;
+		status="okay";
+
+		port@0 {
+			port-id = <0>;
+			port-type = <0>;
+			phy-id = <0>;
+		};
+
+		port@1 {
+			port-id = <1>;
+			port-type = <1>;
+			phy-id = <1>;
+		};
+	};
+
+(or)
+2. Port0 is LAN in Switch bypass mode:
+
+	enet: enet@0x18042000 {
+		compatible = "brcm,amac-enet";
+		reg = core_regs: <0x18042000 0x1000>,
+			amac_io_ctrl: <0x18110408 0x10>,
+			amac_idm_reset: <0x18110800 0x4>,
+			mii_mgmt_ctrl_regs: <0x18002000 0x4>,
+			mii_cmd_data_regs: <0x18002004 0x4>,
+			icfg_regs: <0x18000000 0x1000>,
+			chip_dru_base: <0x0301d000 0x1000>,
+			srab_base: <0x18007000 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		switchmode = <0>;
+		tag_support = <0>;
+		status="okay";
+
+		port@0 {
+			port-id = <0>;
+			port-type = <0>;
+			phy-id = <0>;
+		};
+	};
+
+(or)
+3. Port0 is PC and Port1 is LAN port in Switch mode (no tag support):
+
+	enet: enet@0x18042000 {
+		compatible = "brcm,amac-enet";
+		reg = core_regs: <0x18042000 0x1000>,
+			amac_io_ctrl: <0x18110408 0x10>,
+			amac_idm_reset: <0x18110800 0x4>,
+			mii_mgmt_ctrl_regs: <0x18002000 0x4>,
+			mii_cmd_data_regs: <0x18002004 0x4>,
+			icfg_regs: <0x18000000 0x1000>,
+			chip_dru_base: <0x0301d000 0x1000>,
+			srab_base: <0x18007000 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		switchmode = <1>;
+		tag_support = <0>;
+		status="okay";
+
+		port@0 {
+			port-id = <0>;
+			port-type = <1>;
+			phy-id = <0>;
+		};
+
+		port@1 {
+			port-id = <1>;
+			port-type = <0>;
+			phy-id = <1>;
+		};
+	};
+
+(or)
+4. Port0 is LAN and Port1 is PC port in Switch mode (no tag support):
+   Port0 has a max speed of 100M
+
+	enet: enet@0x18042000 {
+		compatible = "brcm,amac-enet";
+		reg = core_regs: <0x18042000 0x1000>,
+			amac_io_ctrl: <0x18110408 0x10>,
+			amac_idm_reset: <0x18110800 0x4>,
+			mii_mgmt_ctrl_regs: <0x18002000 0x4>,
+			mii_cmd_data_regs: <0x18002004 0x4>,
+			icfg_regs: <0x18000000 0x1000>,
+			chip_dru_base: <0x0301d000 0x1000>,
+			srab_base: <0x18007000 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		switchmode = <1>;
+		tag_support = <0>;
+		status="okay";
+
+		port@0 {
+			port-id = <0>;
+			port-type = <1>;
+			phy-id = <0>;
+			speed = <100>;
+		};
+
+		port@1 {
+			port-id = <1>;
+			port-type = <0>;
+			phy-id = <1>;
+		};
+	};
+

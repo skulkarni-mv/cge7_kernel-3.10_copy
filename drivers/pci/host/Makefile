@@ -1,0 +1,15 @@
+obj-$(CONFIG_PCIE_DW) += pcie-designware.o
+obj-$(CONFIG_PCI_XGENE) += pci-xgene.o
+obj-$(CONFIG_PCI_XGENE_MSI) += pci-xgene-msi.o
+obj-$(CONFIG_PCI_EXYNOS) += pci-exynos.o
+obj-$(CONFIG_PCI_MVEBU) += pci-mvebu.o
+obj-$(CONFIG_PCI_MVEBU_ARM64) += pci-mvebu-arm64.o
+obj-$(CONFIG_PCI_HOST_COMMON) += pci-host-common.o
+obj-$(CONFIG_PCI_HOST_GENERIC) += pci-host-generic.o
+obj-$(CONFIG_PCI_LAYERSCAPE) += pci-layerscape.o
+obj-$(CONFIG_PCI_VERSATILE) += pci-versatile.o
+obj-$(CONFIG_PCIE_IPROC) += pcie-iproc.o
+obj-$(CONFIG_PCIE_ARMADA_8K) += pcie-armada8k.o
+obj-$(CONFIG_PCI_XILINX_NWL) += pci-xilinx-nwl.o
+obj-$(CONFIG_PCI_HOST_THUNDER_ECAM) += pci-thunder-ecam.o
+obj-$(CONFIG_PCI_HOST_THUNDER_PEM) += pci-thunder-pem.o

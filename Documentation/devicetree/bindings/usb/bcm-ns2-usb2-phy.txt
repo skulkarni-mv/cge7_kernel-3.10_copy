@@ -1,0 +1,36 @@
+BROADCOM Northstar2 USB2 PHY
+
+Required properties:
+ - compatible: "brcm,ns2-usb2-phy"
+ - reg: address of each of the below PHY registers for the given controller.
+       idm_reset_ctl
+       idm_io_ctl_direct
+       crmu_usb2_ctl
+       ohci_ehci_strap
+       phy_ctrl_p0
+       phy_misc_status
+       icfg_fsm
+ - afe_corerdy_vddc: position within crmu_usb2_ctl of afe_corerdy_vddc bit
+   for the specifie controller.
+ - #phy-cells: must be 1 to enable both EHCI and OHCI cores.
+
+Optional properties:
+- enable-dual-role: define for dual-role-device ports
+
+Refer to phy/phy-bindings.txt for the generic PHY binding properties
+
+Example:
+
+
+	usbphy0: usbphy@0x67010800 {
+		#phy-cells = <1>;
+		compatible = "brcm,ns2-usb2-phy";
+		reg = m0_idm_reset_ctl:  <0x67010800 0x4>,
+		   m0_idm_io_ctl_direct: <0x67010408 0x4>,
+		   m0_crmu_usb2_ctl:     <0x6501D148 0x4>,
+		   m0_ohci_ehci_strap:   <0x66490700 0x4>,
+                   m0_phy_ctrl_p0:       <0x66490200 0x4>,
+		   m0_phy_misc_status:   <0x66000888 0x4>;
+		   m0_icfg_fsm:          <0x66000984 0x4>;
+		   afe_corerdy_vddc = <13>;
+	};

@@ -1,0 +1,127 @@
+/*
+ * Copyright 2014-2015 Broadcom Corporation.  All rights reserved.
+ *
+ * Unless you and Broadcom execute a separate written software license
+ * agreement governing use of this software, this software is licensed to you
+ * under the terms of the GNU General Public License as
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+ * kind, whether express or implied; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "bcm_ns2.dtsi"
+
+/ {
+	model = "SVK";
+	compatible = "bcm,ns2";
+
+	chosen {
+		bootargs = "maxcpus=4 console=ttyS0,115200n8 debug earlyprintk=uart8250-32bit,0x66130000 pci=pcie_bus_safe";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x80000000 0x00000001 0x00000000>;
+	};
+
+	i2c@66080000 {
+		clock-frequency = <100000>;
+		status = "okay";
+	};
+
+	i2c@660b0000 {
+		clock-frequency = <100000>;
+		status = "okay";
+	};
+};
+
+&nand {
+	partition@0 {
+		label = "nboot";
+		reg = <0x00000000 0x00280000>; /*  2.5MB */
+		read-only;
+	};
+	partition@1 {
+		label = "nenv";
+		reg = <0x00280000 0x00040000>; /* 0.25MB */
+	};
+	partition@2 {
+		label = "ndtb";
+		reg = <0x002c0000 0x00040000>; /* 0.25MB */
+	};
+	partition@3 {
+		label = "nsystem";
+		reg = <0x00300000 0x03d00000>; /*   61MB */
+	};
+	partition@4 {
+		label = "nrootfs";
+		reg = <0x04000000 0x3c000000>; /*  960MB */
+	};
+};
+
+&qspi {
+        flash: m25p80@0 {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "m25p80";
+                spi-max-frequency = <62500000>;
+                m25p,default-addr-width = <3>;
+                reg = <0 0x0 0 0x0>;
+
+                partition@0 {
+                        label = "bl0";
+                        reg = <0x00000000 0x00080000>; /*  512KB */
+                };
+
+                partition@1 {
+                        label = "fip";
+                        reg = <0x00080000 0x00150000>; /* 1344KB */
+                };
+
+                partition@2 {
+                         label = "env";
+                         reg = <0x001d0000 0x00020000>;/*  128KB */
+                };
+
+                partition@3 {
+                        label = "dtb";
+                        reg = <0x001F0000 0x00010000>; /*   64KB */
+                };
+
+                partition@4 {
+                        label = "kernel";
+                        reg = <0x00200000 0x00E00000>; /*   14MB */
+                };
+
+                partition@5 {
+                        label = "rootfs";
+                        reg = <0x01000000 0x01000000>; /*   16MB */
+                };
+	};
+};
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&uart3 {
+	status = "ok";
+};
+
+&sata_phy {
+	aeq_override = <3>;
+	cdr_restrict = <149>;
+};

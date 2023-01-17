@@ -1,0 +1,114 @@
+Armada8040 development board setup:
+--------------------------------------
+
+The Armada 8040 development board (PCB: DB-88F8040-Modular) is a configurable board,
+designed to test several combinations of SoC configurations.
+linux supports a defined set of those configurations via different device tree files.
+
+This document describes the board modifications required to set up each configuration and the
+interfaces supported (or disabled in each one).
+
+To switch board configuration:
+1. Modify HW board settings according to the instructions in the "Board Setup" section below.
+2. Use appropriate Device Tree file for booting Linux.
+3. Same Device Tree selection is required also in U-Boot (to initialize requested comphy SerDes lanes).
+   Modify the Device Tree file used by U-BOOT, by running the U-BOOT command "fdt_config",
+   and select the appropriate configuration entry.
+
+
+Board Setup
+------------
+
+### setup A: armada-8040-db-A.dts  ###
+--------------------------------------
+
+	- Jumper-module (CON44): SLM1564
+	- Serdes CP0 site module (CON42): SLM1521:
+		- DPR 2,3,4,5 = 2-3
+		- DIP-SW-SW1:
+			SW1, SW2, SW3, SW4, SW5, SW6, SW7, SW8 = OFF
+
+	- Serdes CP1 site module (CON41): SLM1521
+		- DPR 2,3,4,5 = 2-3
+		- DIP-SW-SW1:
+			SW5 = ON
+			SW1, SW2, SW3, SW4, SW6, SW7, SW8 = OFF
+
+
+### setup 2: armada-8040-db-router.dts ###
+------------------------------------------
+
+	- Jumper-module (CON44): SLM1564
+	- Serdes CP0 site module (CON42): SLM1521
+	- Serdes CP1 site module (CON41): SLM1521
+	  SLM1521 Module DIP switch:
+		-DPR 2,3,4,5 = 2-3
+		-DIP-SW-SW1:
+			SW1, SW3, SW6, SW7 = ON
+			SW2, SW4, SW5, SW8 = OFF
+
+
+The tables below summarizes the interface configuration of each setup
+
+SERDES PHY configuration
+------------------------
+Setup  #	|	A	|	B	| 	TBD	|
+Name   #	|     db-A	|    db-router	|		|
+-----------------------------------------------------------------
+CP0:								|
+-----------------------------------------------------------------
+	lane0	|   PCIe0 (x1)	|   N/C		|		|
+	lane1	|   SATA0	|   USB3_HOST0	|     		|
+	lane2	|   KR (10G) 	|   KR (10G)  	|		|
+	lane3	|   SATA1	|   SATA1	|		|
+	lane4	|   USB3_HOST1 	|   USB3_HOST1	|		|
+	lane5	|   PCIe2 (x1) 	|   PCIe2 (x1)	|		|
+--------------------------------|--------------------------------
+USB2_H0 (UTMI only)						|
+USB2_H1 (UTMI & USB3 SerDes)					|
+								|
+CP1:		|		| 		|		|
+--------------------------------|--------------------------------
+	lane0	|  PCIe0 (x1)	|    N/C	|		|
+	lane1	|  SATA0	|    USB3_HOST0	|		|
+	lane2	|  KR (10G)	|    KR (10G)   |		|
+	lane3	|  SATA1	|    SATA1	|		|
+	lane4	|  PCIe1 (x1)	|    USB3_HOST1	|		|
+	lane5	|  PCIe2 (x1)	|    PCIe2 (x1) |		|
+-----------------------------------------------------------------
+USB2_H0 (UTMI only)
+
+
+Multi-purpose pin configurations
+--------------------------------
+Setup  #	|	1	|	2	|	TBD	|
+Name   #	|     Default 	|    Router	|		|
+-----------------------------------------------------------------
+AP806:								|
+-----------------------------------------------------------------
+    AP-SDIO	|   [0-10]	|    N/C	|		|
+    AP-SPI0	|   N/C		|    [4-5]	|		|
+    AP-UART0	|   [11,19]	|    [11,19]	|		|
+--------------------------------|--------------------------------
+CP0:								|
+--------------------------------|--------------------------------
+    CP0-SMI	|   [32,34]	|    [32,34]	|		|
+    CP0-XSMI	|   [42-43]	|    [35-36]	|		|
+    CP0-TWSI	|   [37-38]	|    [37-38]	|		|
+    CP0-SATA1	|   [40]	|    [40]	|		|
+    CP0-SATA0	|   [41]	|    [41]	|		|
+    CP0-RGMII1	|   [44-55]	|    [44-55]	|		|
+    CP0-SD	|   [56-62]	|    [56-62]	|		|
+--------------------------------|--------------------------------
+GPIOS:								|
+[33] - GPIO: GE_INT#/push button/Wake				|
+[35] - MSS_GPIO[3]: MSS_PWDN					|
+[36] - MSS_GPIO[5]: MSS_VTT_EN					|
+								|
+CP1:								|
+--------------------------------|--------------------------------
+    CP1-RGMII1	|    [0-11]	|    [0-11]	|		|
+    CP1-SMI	|    [27-28]	|    [27,31]	|		|
+    CP1-SPI1	|    [13-16]	|    N/C	|		|
+    CP1-UART0	|    [29-30]	|    N/C	|		|
+-----------------------------------------------------------------

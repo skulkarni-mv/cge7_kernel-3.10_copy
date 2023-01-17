@@ -1,0 +1,292 @@
+/*
+ * Device Tree file for Marvell a385 based pt6040
+ *
+ *  Copyright (C) 2015 MontaVista
+ *
+ * Sharath Kurudi <skurudi@mvista.com>
+ *
+ * This file is licensed under the terms of the GNU General Public
+ * License version 2.  This program is licensed "as is" without any
+ * warranty of any kind, whether express or implied.
+ */
+
+/dts-v1/;
+#include "armada-385-388.dtsi"
+
+/ {
+	model = "Marvell A385 based pt6040";
+	compatible = "marvell,a385-db-ap", "marvell,armada385", "marvell,armada38x";
+	
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x10000000>; /* 256 MB */
+	};
+
+
+	soc {
+		pcie-mem-aperture = <0xe0000000 0x8000000>;
+		pcie-io-aperture = <0xe0000000 0x8000000>;
+
+		ranges = <
+			  MBUS_ID(0x01, 0x2f) 0 0xfd000000 0x800000     /* NOR flash */
+			  MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000     /* BM: PHYS=0xf1200000 size 1M */
+			  MBUS_ID(0x0b, 0x04) 0 0xf1300000 0x100000>;   /* PNC: PHYS=0xf1300000 size 1M */
+
+		pcie-controller {
+			status = "okay";
+		
+			pcie@1,0 {
+				status = "okay";
+			};
+			
+			pcie@2,0 {
+				status = "okay";
+			};
+		};
+
+		devbus-bootcs {
+			status = "okay";
+			/* Device Bus parameters are required */
+
+			/* Read parameters */
+			devbus,bus-width    = <8>;
+			devbus,turn-off-ps  = <60000>;
+			devbus,badr-skew-ps = <0>;
+			devbus,acc-first-ps = <124000>;
+			devbus,acc-next-ps  = <248000>;
+			devbus,rd-setup-ps  = <0>;
+			devbus,rd-hold-ps   = <0>;
+
+			/* Write parameters */
+			devbus,sync-enable = <0>;
+			devbus,wr-high-ps  = <60000>;
+			devbus,wr-low-ps   = <60000>;
+			devbus,ale-wr-ps   = <60000>;
+
+
+			nor@0 {
+					compatible = "spansion,s29gl064n90bfi03", "cfi-flash";
+		
+					/* 8 MiB */
+					reg = <0 0x800000>;
+					bank-width = <1>;
+					/* Persistent Protection Bit (PPB) support */
+					use-advanced-sector-protection;
+					#address-cells = <1>;
+					#size-cells = <1>;
+				};
+		};
+		
+		internal-regs {
+			pinctrl {
+				leds_gpio: leds-gpio {
+					marvell,pins = "mpp20", "mpp53", "mpp54";
+					marvell,function = "gpio";
+				};
+			};
+
+			gpio_leds {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+				pinctrl-0 = <&leds_gpio>;
+
+				red_led {
+					label = "red";
+					gpios = <&gpio1 21 1>;
+					default-state = "off";
+				};
+				green_led {
+					label = "green";
+					gpios = <&gpio1 22 1>;
+					default-state = "on";
+				};
+			};
+		
+			usb3@f8000 {
+				status = "disabled";
+			};
+
+			i2c0: i2c@11000 {
+				status = "okay";
+				clock-frequency = <100000>;
+
+				mux@70 {
+					compatible = "nxp,pca9548";
+					reg = <0x70>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					i2c@0 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <0>;
+						sfp_msa1: eeprom@50 {
+							compatible = "at,24c02";
+							reg = <0x50>;
+						};
+						sfp_ddm1: eeprom@51 {
+							compatible = "at,24c02";
+							reg = <0x51>;
+						};
+						sfp_loop1: eeprom@52 {
+							compatible = "at,24c02";
+							reg = <0x52>;
+						};
+					};
+					i2c@1 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <1>;
+						sfp_msa2: eeprom@50 {
+							compatible = "at,24c02";
+							reg = <0x50>;
+						};
+						sfp_ddm2: eeprom@51 {
+							compatible = "at,24c02";
+							reg = <0x51>;
+						};
+						sfp_loop2: eeprom@52 {
+							compatible = "at,24c02";
+							reg = <0x52>;
+						};
+					};
+					i2c@2 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <2>;
+						sfp_msa3: eeprom@50 {
+							compatible = "at,24c02";
+							reg = <0x50>;
+						};
+						sfp_ddm3: eeprom@51 {
+							compatible = "at,24c02";
+							reg = <0x51>;
+						};
+						sfp_loop3: eeprom@52 {
+							compatible = "at,24c02";
+							reg = <0x52>;
+						};
+					};
+					/* Not available on ML6352 */
+					i2c@3 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <3>;
+						sfp_msa4: eeprom@50 {
+							compatible = "at,24c02";
+							reg = <0x50>;
+						};
+						sfp_ddm4: eeprom@51 {
+							compatible = "at,24c02";
+							reg = <0x51>;
+						};
+						sfp_loop4: eeprom@52 {
+							compatible = "at,24c02";
+							reg = <0x52>;
+						};
+					};
+				};
+
+				gpio3: gpio@22 {
+					compatible = "nxp,pca9535";
+					reg = <0x22>;
+					#gpio-cells = <2>;
+					gpio-controller;
+				};
+
+				gpio4: gpio@21 {
+					compatible = "nxp,pca9535";
+					reg = <0x21>;
+					#gpio-cells = <2>;
+					gpio-controller;
+				};
+
+				adt75@49 {
+					compatible = "ad,adt75";
+					reg = <0x49>;
+				};
+			};
+
+			i2c1: i2c@11100 {
+				status = "disabled";
+				clock-frequency = <100000>;
+			};
+
+			eth0: ethernet@70000 {
+				status = "okay";
+				phy = <&phy0>;
+				phy-mode = "sgmii";
+				speed-fixed = <1000>;
+				mac-address = [ 00 30 3a 33 30 3a ];
+				local-mac-address = [ 00 30 3a 33 30 3a ];
+				status = "okay";
+			};
+		
+			eth1: ethernet@30000 {
+				status = "okay";
+				phy = <&phy1>;
+				phy-mode = "sgmii";
+				speed-fixed = <1000>;
+				mac-address = [ 00 50 43 11 9a b7 ];
+				local-mac-address = [ 00 50 43 11 9a b7 ];
+			};
+
+			eth2: ethernet@34000 {
+				status = "okay";
+				phy = <&phy2>;
+				phy-mode = "sgmii";
+				mac-address = [ 00 50 43 11 ee b7 ];
+				local-mac-address = [ 00 50 43 11 ee b7 ];
+			};
+
+			mdio {
+				phy0: ethernet-phy@0 {
+					reg = <999>;
+				};
+
+				phy1: ethernet-phy@1 {
+					reg = <999>;
+				};
+
+				/* Dummy PHY for port 0 and 1 */
+				phy2: ethernet-phy@2 {
+					reg = <1>;
+				};
+                        };
+
+			serial@12000 {
+				clock-frequency = <200000000>;
+				status = "okay";
+			};
+
+			/*
+			 * 1GB Flash via NFC NAND controller
+			 * by defeault disabled, because NFC
+			 * shares same pins with SPI0 and
+			 * requires SLM-1358 jumper
+			*/
+			nfc: nand@d0000 {
+				status = "okay";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				clock-frequency = <200000000>;
+
+				nfc,nfc-mode  = "normal";       /* normal or ganged */
+				nfc,nfc-dma   = <0>;            /* 0 for no, 1 for dma */
+				nfc,nfc-width = <8>;
+				nfc,ecc-type  = <1>;            /* 4 bit */
+				nfc,num-cs    = <1>;
+                        };
+		};
+	};
+
+	watchdog: watchdog {
+		compatible = "linux,wdt-gpio";
+		gpios = <&gpio0 19 0>;
+		hw_algo = "level";
+		hw_margin_ms = <10000>;
+		always-running;
+	};
+};

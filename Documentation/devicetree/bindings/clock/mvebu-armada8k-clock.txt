@@ -1,0 +1,53 @@
+* Clock bindings for Marvell MVEBU Armada8K SoCs
+
+Marvell MVEBU Armada 8K SoCs usually allow to determine clock frequencies by
+reading the Sample-At-Reset (SAR) register. The clocks consumer should
+specify the desired clock by having the clock ID in its "clocks" phandle cell.
+
+The following is a list of provided IDs and clock names on Armada APN 806:
+ 0 = DDR
+ 1 = Ring
+ 2 = CPU
+ 3 = PIDI AP
+ 4 = PIDI AP
+
+The following is a list of provided IDs and clock names on Armada APN 806 RING dividers:
+ 0 = Ring 0
+ 1 = Ring 2
+ 2 = Ring 3
+ 3 = Ring 4
+ 4 = Ring 5
+
+Required properties:
+- compatible : shall be one of the following:
+	"marvell,armada-apn806-clock" - For Armada Armada APN 806 clocks
+	"marvell,armada-apn806-ring-clock" - For Armada Armada APN 806 RING clocks dividers
+- reg : shall be the register address of the Sample-At-Reset (SAR) register
+- #clock-cells : from common clock binding; shall be set to 1
+
+Example:
+
+ap806clk: device-sar@0x6F8200 {
+	compatible = "marvell,armada-apn806-clock";
+	reg = <0x6F8204 0x04>;
+	#clock-cells = <1>;
+};
+
+ringclk: server-control@0x6F8250 {
+	compatible = "marvell,armada-apn806-ring-clock";
+	reg = <0x6F8250 0x04>;
+	#clock-cells = <1>;
+	clocks = <&ap806clk 1>;
+
+};
+
+serial@512100 {
+	compatible = "snps,dw-apb-uart";
+	reg = <0x512100 0x100>;
+	clock-frequency = <25000000>;
+	reg-shift = <2>;
+	interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+	reg-io-width = <1>;
+	clocks = <&ringclk 2>;
+};
+

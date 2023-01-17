@@ -1,0 +1,48 @@
+#
+# PHY
+#
+
+menu "PHY Subsystem"
+
+config GENERIC_PHY
+	tristate "PHY Core"
+	help
+	  Generic PHY support.
+
+	  This framework is designed to provide a generic interface for PHY
+	  devices present in the kernel. This layer will have the generic
+	  API by which phy drivers can create PHY using the phy framework and
+	  phy users can obtain reference to the PHY. All the users of this
+	  framework should select this config.
+
+config PHY_BCM_NS2_SATA
+	bool "Broadcom NorthStar2 SATA phy driver"
+	depends on SATA_AHCI_PLATFORM
+	depends on ARCH_NORTHSTAR2
+	depends on OF
+	default y
+	select GENERIC_PHY
+	help
+	  This driver enables support for SATA phy on Broadcom NorthStar2
+	  SoC devices.  It is required if you are using the SATA ports.
+	  Specific configuration information is read from the device tree.
+
+config BROADCOM_CMIC_MDIO
+	bool "Broadcom CMIC MIIM MDIO support"
+	depends on ARCH_NORTHSTAR2
+	select GENERIC_PHY
+    default y
+    help
+      Support Broadcom CMIC MIIM MDIO controller for internal/external PHY
+
+config PHY_MVEBU_COMPHY
+	def_bool y
+	depends on ARCH_MVEBU
+	depends on OF
+	select GENERIC_PHY
+	help
+	  Enable this to support Marvell comphy driver. This driver is
+	  responsible for configuring all SerDes lanes according to the
+	  selected configuration.
+
+endmenu

@@ -1,0 +1,17 @@
+Broadcom NorthStar2 SATA PHY
+
+Required properties:
+- compatible: Must be "brcm,ns2-sata-phy"
+- reg :	SATA IDM space (see note below)
+	SATA host space (SATA_ROOT in the regs file)
+
+Note: The SATA IDM space is not given an explicit beginning in the regs
+file.  The easiest way to get it is to zero the lower three nybbles of
+SATA_M0_IDM_IDM_IO_CONTROL_DIRECT.
+
+Example: (assumes platform uses 2 'cells' for both address and length)
+	sata_phy: sata_phy@0x00000000633F0000 {
+		compatible = "brcm,ns2-sata-phy";
+			reg = <0x00000000 0x67004000 0x00000000 0x00001000>,
+			      <0x00000000 0x633F0000 0x00000000 0x00004000>;
+	};

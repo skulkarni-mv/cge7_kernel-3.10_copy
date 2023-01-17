@@ -1,0 +1,13 @@
+obj-$(CONFIG_MVEBU_CLK_COMMON)	+= common.o
+obj-$(CONFIG_MVEBU_CLK_CORE) 	+= clk.o clk-core.o
+obj-$(CONFIG_MVEBU_CLK_CPU) 	+= clk-cpu.o
+obj-$(CONFIG_MVEBU_CLK_GATING) 	+= clk-gating-ctrl.o
+obj-$(CONFIG_MVEBU_CLK_COREDIV)	+= clk-corediv.o
+obj-$(CONFIG_ARMADA_8K_CLK_COMMON) += armada8k-common.o
+obj-$(CONFIG_ARMADA_AP806_CLK) += armada-ap806.o
+obj-$(CONFIG_ARMADA_3700_CLK)  += armada-3700.o
+obj-$(CONFIG_ARMADA_AP806_SYSCON) += ap806-system-controller.o
+obj-$(CONFIG_ARMADA_CP110_SYSCON) += cp110-system-controller.o
+obj-$(CONFIG_ARMADA_AP806_CORE_CLK) += ap806-core.o
+obj-$(CONFIG_ARMADA_AP806_RING_CLK) += ap806-ring.o
+obj-$(CONFIG_ARMADA_AP806_CPU_CLK) += ap806-cpu-clk.o

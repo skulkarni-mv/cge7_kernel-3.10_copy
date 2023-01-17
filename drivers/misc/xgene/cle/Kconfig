@@ -1,0 +1,7 @@
+config XGENE_CLE
+	tristate "X-Gene Clasifier Engine"
+	depends on ARCH_XGENE
+	default n
+	help
+	  This option enables dirver for Inline (for Ethernet) and
+	  LookAside Clasifier Engine for X-Gene SoC.

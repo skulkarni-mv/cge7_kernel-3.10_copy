@@ -1,0 +1,21 @@
+#
+# GPT driver configuration
+#
+menuconfig GENERAL_PURPOSE_TIMER
+	bool "General Purpose Timer Support"
+	depends on COMMON_CLK_XGENE
+	default y
+
+if GENERAL_PURPOSE_TIMER
+
+comment "General Purpose Timer"
+
+config XGENE_GPT
+	tristate "APM X-Gene GPT"
+	default y
+	help
+	  If you say yes here you get support for the APM X-Gene General Purpose Driver.
+
+	  This driver can also be built as a module, if so, the module
+	  will be called "xgene-gpt".
+endif

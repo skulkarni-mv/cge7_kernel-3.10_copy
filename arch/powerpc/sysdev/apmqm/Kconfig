@@ -1,0 +1,21 @@
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+
+config APMQM
+        tristate "APM 86xxx QM driver"
+	depends on APM86xxx
+        default n
+        help
+          This option enables APM86xxx Queue Manager (QM) driver support
+          requires for APM86xxx DMA, Ethernet, and security hardware.
+
+if APMQM
+config APMQM_CFG
+        tristate "APM 86xxx QM Configuration Driver"
+	depends on APMQM
+        default n
+        help
+          This option enables APM86xxx Queue Manager (QM) configuration
+	  driver.
+endif

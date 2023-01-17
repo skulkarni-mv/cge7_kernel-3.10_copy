@@ -1,0 +1,111 @@
+Broadcom iProc family clocks
+
+This binding uses the common clock binding:
+Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+The iProc clock controller manages clocks that are common to the iProc family
+of SoCs. The main PLL controlled is the ARM PLL which is derived from a 25
+MHz crystal.
+
+Required properties:
+- compatible:
+	Must be "brcm,iproc-arm-pll"
+
+- #clock-cells:
+	Must be <0>
+
+- reg:
+	Define the base and range of the I/O address space that contains the
+	iProc clock control registers
+
+- clocks:
+	The input parent clock phandle for the PLL. For the iProc ARM PLL,
+	this is a onboard crystal with a fixed rate
+
+Example:
+
+	osc: oscillator {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <25000000>;
+	};
+
+	/* iProc ARM PLL */
+	arm_pll: arm_pll {
+		#clock-cells = <0>;
+		compatible = "brcm,iproc-arm-pll";
+		clocks = <&osc>;
+		reg = <0x19000000 0x1000>;
+	};
+
+	/* peripheral clock for system timer */
+	arm_periph_clk: arm_periph_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&arm_pll>;
+		clock-div = <2>;
+		clock-mult = <1>;
+	};
+
+	asiu_clks: asiu_clks {
+		#clock-cells = <1>;
+		compatible = "brcm,cygnus-asiu-clk";
+		reg = <0x0301d048 0xc>,
+			<0x180aa024 0x4>;
+		clocks = <&osc>;
+		clock-output-names = "keypad", "adc/touch", "pwm";
+	};
+
+
+Northstar 2
+-----------
+PLL and leaf clock compatible strings for Northstar 2 are:
+    "brcm,ns2-genpll-scr"
+    "brcm,ns2-genpll-scr-clk"
+    "brcm,ns2-genpll-sw"
+    "brcm,ns2-genpll-sw-clk"
+    "brcm,ns2-lcpll-ddr"
+    "brcm,ns2-lcpll-ddr-clk"
+    "brcm,ns2-lcpll-ports"
+    "brcm,ns2-lcpll-ports-clk"
+
+The following table defines the set of PLL/clock index and ID for Northstar 2.
+These clock IDs are defined in:
+    "include/dt-bindings/clock/bcm-ns2.h"
+
+    Clock	Source		Index	ID
+    ---		-----		-----	---------
+    crystal	N/A		N/A	N/A
+
+    genpll_scr	crystal		N/A	N/A
+    genpll_sw	crystal		N/A	N/A
+    lcpll_ddr	crystal		N/A	N/A
+    lcpll_ddr	crystal		N/A	N/A
+
+    scr		genpll_scr	0	BCM_NS2_GENPLL_SCR_SCR_CLK
+    fs		genpll_scr	1	BCM_NS2_GENPLL_SCR_FS_CLK
+    audio_ref	genpll_scr	2	BCM_NS2_GENPLL_SCR_AUDIO_CLK
+    unused1	genpll_scr	3	BCM_NS2_GENPLL_SCR_UNUSED3
+    unused2	genpll_scr	4	BCM_NS2_GENPLL_SCR_UNUSED4
+    unused3	genpll_scr	5	BCM_NS2_GENPLL_SCR_UNUSED5
+
+    rpe		genpll_sw	0	BCM_NS2_GENPLL_SW_RPE_CLK
+    250		genpll_sw	1	BCM_NS2_GENPLL_SW_250_CLK
+    nic		genpll_sw	2	BCM_NS2_GENPLL_SW_NIC_CLK
+    chimp	genpll_sw	3	BCM_NS2_GENPLL_SW_CHIMP_CLK
+    port	genpll_sw	4	BCM_NS2_GENPLL_SW_PORT_CLK
+    sdio	genpll_sw	5	BCM_NS2_GENPLL_SW_SDIO_CLK
+
+    pcie_sata_usb lcpll_ddr	0	BCM_NS2_LCPLL_DDR_PCIE_SATA_USB_CLK
+    ddr		lcpll_ddr	1	BCM_NS2_LCPLL_DDR_DDR_CLK
+    unused4	lcpll_ddr	2	BCM_NS2_LCPLL_DDR_UNUSED2
+    unused5	lcpll_ddr	3	BCM_NS2_LCPLL_DDR_UNUSED3
+    unused6	lcpll_ddr	4	BCM_NS2_LCPLL_DDR_UNUSED4
+    unused7	lcpll_ddr	5	BCM_NS2_LCPLL_DDR_UNUSED5
+
+    wan		lcpll_ports	0	BCM_NS2_LCPLL_PORTS_WAN_CLK
+    rgmii	lcpll_ports	1	BCM_NS2_LCPLL_PORTS_RGMII_CLK
+    unused8	lcpll_ports	2	BCM_NS2_LCPLL_PORTS_UNUSED2
+    unused9	lcpll_ports	3	BCM_NS2_LCPLL_PORTS_UNUSED3
+    unused10	lcpll_ports	4	BCM_NS2_LCPLL_PORTS_UNUSED4
+    unused11	lcpll_ports	5	BCM_NS2_LCPLL_PORTS_UNUSED5

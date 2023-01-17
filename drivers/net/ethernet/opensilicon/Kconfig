@@ -1,0 +1,63 @@
+#
+# Open-Silicon network device configuration
+#
+
+config NET_VENDOR_OPENSILICON
+	bool "Open-Silicon devices"
+	default y
+	depends on (ARM && ARCH_OPV5XC) && NET
+
+	---help---
+	  If you have a network (Ethernet) card belonging to this class, say Y
+	  and read the Ethernet-HOWTO, available from
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about Intel cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
+
+if NET_VENDOR_OPENSILICON
+
+config OPV5XC_PSE
+	tristate "Open-Silicon Gigabit Ethernet MAC support"
+	default m
+	depends on NET_VENDOR_OPENSILICON
+	select PHYLIB
+
+	---help---
+	  This driver supports the gigabit ethernet MACs in the
+	  Open-Silicon OPV5XC chipset family.
+choice
+	prompt "PSE Version"
+	depends on OPV5XC_PSE
+	default OPV5XC_PSE_ES2 if ARCH_OPV5XC_CX4
+
+config OPV5XC_PSE_ES1
+	bool "ES1"
+	depends on OPV5XC_PSE && (ARCH_OPV5XC_CX4 || ARCH_OPV5XC_ES1)
+
+config OPV5XC_PSE_ES2
+	bool "ES2"
+	depends on OPV5XC_PSE && (ARCH_OPV5XC_CX4 || ARCH_OPV5XC_ES2)
+
+endchoice
+
+
+if OPV5XC_PSE
+	config OPV5XC_PSE_NR_MAC_PORTS
+	int "Maximum number of MAC ports"
+        range 1 2 if OPV5XC_PSE_ES1
+        range 1 3 if OPV5XC_PSE_ES2
+        default "2"
+
+	config OPV5XC_PSE_ACP_SUPPORT
+	bool "ACP control "
+	default y
+	depends on SMP && (ARCH_OPV5XC_ES1 || ARCH_OPV5XC_ES2)
+	---help---
+	  Enable ACP control of PSE for DMA HW coherence.
+
+endif # OPV5XC_PSE
+
+endif # NET_VENDOR_OPENSILICON

@@ -1,0 +1,69 @@
+Broadcom Northstar2 IOMUX Controller
+
+The Northstar2 IOMUX controller supports group based mux configuration. In
+addition, certain pins can be muxed to GPIO function individually.
+
+Required properties:
+
+- compatible:
+    Must be "brcm,northstar2-pinmux"
+
+- reg:
+    Define the base and range of the I/O address space that contains the Northstar2
+IOMUX registers
+
+Required properties in child nodes:
+
+- function:
+    The mux function to select
+
+- groups:
+    The list of groups to select with a given function
+
+Each child node represents a configuration. Client devices reference the child
+node to enable a mux configuration
+
+For more details, refer to
+Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt
+
+For example:
+
+	pinmux: pinmux@0x0301d0c8 {
+		compatible = "brcm,northstar2-pinmux";
+		reg = <0x0301d0c8 0x1b0>;
+
+		i2s_0: i2s_0 {
+			function = "i2s0";
+			groups = "i2s0_0_grp", "i2s0_1_grp";
+		};
+
+		i2s_1: i2s_1 {
+			function = "i2s1";
+			groups = "i2s1_0_grp", "i2s1_1_grp";
+		};
+
+		i2s_2: i2s_2 {
+			function = "i2s2";
+			groups = "i2s2_0_grp", "i2s2_1_grp", "i2s2_2_grp",
+				 "i2s2_3_grp", "i2s2_4_grp";
+		};
+
+		spi_0: spi_0 {
+			function = "spi0";
+			groups = "spi0_grp";
+		};
+	}
+
+	spi0@18028000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x18028000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&spi_0>;
+			clocks = <&axi81_clk>;
+			clock-names = "apb_pclk";
+	};
+
+List of supported functions and groups in Northstar2:
+

@@ -1,0 +1,24 @@
+config SND_SOC_OPV5XC
+	tristate "SoC Audio for Open-Silicon OPV5XC SOC"
+	depends on ARCH_OPV5XC
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select PL330_DMA
+	help
+	  Say Y or M here if you want support for SoC audio on OPV5XC.
+
+config SND_SOC_OPV5XC_I2S
+	tristate "OPV5XC I2S audio interface"
+	depends on (SND_SOC_OPV5XC && !ARCH_OPV5XC_CX4)
+	help
+	  This enables SoC audio driver for OPV5XC I2S interface.
+
+	  To make I2S audio working, also need to select codec link driver
+	  mathing codec chip installed on your board, below.
+
+config SND_SOC_OPV5XC_TLV320AIC23
+	tristate "Texas Instruments TLV320AIC23 codec"
+	depends on SND_SOC_OPV5XC_I2S
+	select SND_SOC_TLV320AIC23
+	help
+	  This enables support for Texas Instruments TLV320AIC23 codec
+	  connected to OPV5XC I2S audio interface.

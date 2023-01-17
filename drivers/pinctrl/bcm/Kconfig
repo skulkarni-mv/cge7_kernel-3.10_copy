@@ -1,0 +1,38 @@
+if ARCH_NORTHSTAR2
+
+config PINCTRL_NORTHSTAR2_MUX
+   bool "Broadcom Northstar2 IOMUX driver"
+   depends on ARCH_NORTHSTAR2
+   select PINMUX
+   select GENERIC_PINCONF
+   default ARCH_NORTHSTAR2
+   help
+     Say yes here to enable the Broadcom Northstar2 IOMUX driver.
+
+     The Broadcom Northstar2 IOMUX driver supports group based IOMUX
+     configuration, with the exception that certain individual pins
+     can be overrided to GPIO function
+
+config PINCTRL_NORTHSTAR2_GPIO
+   bool "Broadcom Northstar2 GPIO (with PINCONF) driver"
+   depends on OF_GPIO && ARCH_NORTHSTAR2
+   select PINCONF
+   select GENERIC_PINCONF
+   default ARCH_NORTHSTAR2
+   help
+     Say yes here to enable the Broadcom Northstar2 GPIO driver.
+
+     The Broadcom Northstar2 SoC has 3 GPIO controllers including the ASIU
+     GPIO controller (ASIU), the chipCommonG GPIO controller (CCM), and
+     the always-ON GPIO controller (CRMU/AON). All 3 GPIO controllers are
+     supported by this driver.
+
+     All 3 Northstar2 GPIO controllers support basic PINCONF functions such
+     as bias pull up, pull down, and drive strength settings, when these
+     pins are muxed to GPIO.
+
+     Pins from the ASIU GPIO can be individually muxed to GPIO function,
+     through the interaction with the Northstar2 IOMUX controller
+
+endif
+

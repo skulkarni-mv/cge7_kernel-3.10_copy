@@ -1,0 +1,163 @@
+/*
+ * dts file for AppliedMicro (APM) P0C (Magneto-based) Board
+ *
+ * Copyright (C) 2014, Applied Micro Circuits Corporation
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+/include/ "apm-magneto.dtsi"
+
+/ {
+	model = "APM X-Gene P0C board";
+	compatible = "apm,p0c", "apm,xgene-magneto";
+
+	chosen { };
+
+	memory {
+		device_type = "memory";
+		reg = < 0x1 0x00000000 0x0 0x80000000 >; /* Updated by bootloader */
+	};
+};
+
+&serial0 {
+	status = "ok";
+};
+
+&serial1 {
+	status = "ok";
+};
+
+&serial4 {
+	status = "ok";
+};
+
+&menet {
+	status = "ok";
+	phy-handle = <&menetphy>;
+	mdio {
+		compatible = "apm,xgene-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		menetphy: menetphy@0 {
+			reg = <0x0>;
+		};
+	};
+};
+
+&rgmii1 {
+	status = "ok";
+};
+
+&sgenet0 {
+	status = "ok";
+	phy-handle = <&sgenet0phy>;
+	mdio {
+		compatible = "apm,xgene-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		sgenet0phy: sgenet0phy@4 {
+			reg = <0x4>;
+		};
+	};
+};
+
+&sgenet1 {
+	status = "ok";
+	phy-handle = <&sgenet1phy>;
+	mdio {
+		compatible = "apm,xgene-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		sgenet1phy: sgenet1phy@6 {
+			reg = <0x6>;
+		};
+	};
+};
+
+&xgenet0 {
+	compatible = "apm,xgene-magneto-sgenet2";
+	status = "ok";
+	phy-mode = "sgmii";
+};
+
+&pcie1clk {
+	status = "ok";
+};
+
+&pcie1 {
+	status = "ok";
+};
+
+&sata1 {
+	status = "ok";
+};
+
+&sdhc0 {
+	status = "ok";
+};
+
+/*
+&usb0 {
+	status = "ok";
+};
+*/
+&spi0 {
+	status = "ok";
+
+	flash: s25fl256s@0 {
+		status = "ok";
+		cell-index = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "s25fl256s1";
+		reg = <0>;
+		spi-max-frequency = <15000000>;
+		spi-cpha;
+		spi-cpol;
+
+		partition@0x00000000 {
+			label = "Tianocore";
+			reg = <0x00000000 0x00800000>;
+		};
+
+		partition@0x00800000 {
+			label = "Tianocore Env";
+			reg = <0x00800000 0x00060000>;
+		};
+
+		partition@0x00860000 {
+			label = "data";
+			reg = <0x00860000 0x017a0000>;
+		};
+	};
+};
+
+&i2c0 {
+	status = "ok";
+	eeprom@55 {
+		compatible = "at24,24c512";
+		reg = <0x55>;
+	};
+};
+
+&i2c1 {
+	status = "ok";
+	eeprom@52 {
+		compatible = "at24,24c512";
+		reg = <0x52>;
+	};
+};
+
+&i2c2 {
+	status = "ok";
+	rtc@68 {
+		compatible = "dallas,ds1337";
+		reg = <0x68>;
+	};
+};

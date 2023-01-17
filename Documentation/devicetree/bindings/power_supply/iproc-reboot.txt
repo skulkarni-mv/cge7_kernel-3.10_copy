@@ -1,0 +1,8 @@
+* iProc Reboot
+
+Northstar and Northstar Plus hardware has a "Device Management Unit", which can
+be programmed to reset the boards.
+
+Required Properties:
+- compatible: Should be "brcm,iproc-reboot"
+- reg: Address and length of the register set for the DMU
